@@ -557,6 +557,100 @@
   </div>
 
 
+  <!-- ── 消費者信心觀察 ── -->
+  <div style="height:32px"></div>
+
+  <!-- Sentiment Stats -->
+  <div class="stats-row" id="sent-stats-row" style="display:none">
+    <div class="stat-card">
+      <div class="stat-label" style="color:#b060ff">諮商會消費者信心</div>
+      <div class="stat-value" id="sent-conf-val">—</div>
+      <div class="stat-change" id="sent-conf-chg" style="color:var(--text-dim)">—</div>
+      <div class="stat-date" id="sent-conf-date">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color:#ff7040">密西根大學消費者信心</div>
+      <div class="stat-value" id="sent-mich-val">—</div>
+      <div class="stat-change" id="sent-mich-chg" style="color:var(--text-dim)">—</div>
+      <div class="stat-date" id="sent-mich-date">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">諮商會 3M 均值</div>
+      <div class="stat-value" id="sent-conf-ma3">—</div>
+      <div class="stat-change" style="color:var(--text-dim)">3個月移動平均</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">密大 3M 均值</div>
+      <div class="stat-value" id="sent-mich-ma3">—</div>
+      <div class="stat-change" style="color:var(--text-dim)">3個月移動平均</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">密大 MoM 變動</div>
+      <div class="stat-value" id="sent-mich-mom">—</div>
+      <div class="stat-change" style="color:var(--text-dim)">vs 上月點數差</div>
+    </div>
+  </div>
+
+  <!-- Sentiment Chart -->
+  <div class="chart-card">
+    <div class="chart-toolbar">
+      <div>
+        <div class="section-title-block">
+          <h2>消費者信心觀察</h2>
+          <div class="series-id">FRED: CONCCONF · UMCSENT — 指數點位</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="toolbar-label">時間刻度</span>
+          <div class="toggle-group">
+            <button class="toggle-btn active" data-sgran="month" onclick="setSentGran('month',this)">月</button>
+            <button class="toggle-btn"        data-sgran="year"  onclick="setSentGran('year',this)">年</button>
+            <button class="toggle-btn"        data-sgran="all"   onclick="setSentGran('all',this)">全部</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="toolbar-label">區間</span>
+          <div class="range-group">
+            <button class="range-btn" data-srange="3Y"  onclick="setSentRange('3Y',this)">3Y</button>
+            <button class="range-btn" data-srange="5Y"  onclick="setSentRange('5Y',this)">5Y</button>
+            <button class="range-btn" data-srange="10Y" onclick="setSentRange('10Y',this)">10Y</button>
+            <button class="range-btn active" data-srange="ALL" onclick="setSentRange('ALL',this)">全部</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-wrapper">
+      <div id="sent-intro" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:380px;gap:14px;color:var(--text-dim)">
+        <div style="font-size:48px;opacity:0.4">🧭</div>
+        <div style="font-family:var(--font-display);font-size:20px;letter-spacing:3px;color:var(--text-secondary)">等待數據載入</div>
+        <div style="font-family:var(--font-mono);font-size:11px;text-align:center;line-height:1.8">載入初領數據後<br/>消費者信心數據將同步抓取</div>
+      </div>
+      <div id="sent-loading" class="overlay" style="display:none">
+        <div class="spinner"></div>
+        <div class="overlay-text">正在抓取消費者信心數據...</div>
+      </div>
+      <div id="sent-error" class="overlay" style="display:none">
+        <div class="error-icon">⚠️</div>
+        <div class="error-msg" id="sent-error-msg"></div>
+      </div>
+      <canvas id="sent-chart" style="display:none"></canvas>
+    </div>
+
+    <div class="chart-legend" id="sent-legend" style="display:none">
+      <div class="legend-item"><div class="legend-swatch" style="background:#b060ff;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>諮商會消費者信心指數 (Conference Board)</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#ff7040;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>密西根大學消費者信心指數 (UMich)</span></div>
+      <div class="legend-item"><div class="legend-swatch recession"></div><span>NBER 景氣衰退期</span></div>
+    </div>
+
+    <div id="sent-note" style="display:none;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#4a5a6a;letter-spacing:0.5px">
+      * Y 軸：指數點位 ／ 諮商會基期 1985=100 ／ 密大基期 1966:Q1=100 ／ 數據來源：FRED，每月更新
+    </div>
+    <div class="source-tag">SOURCE: FRED / ST. LOUIS FED</div>
+  </div>
+
+
 </main>
 
 <script>
@@ -604,6 +698,7 @@ async function loadData() {
     document.getElementById('chart-note').style.display   = 'block';
     showLoading(false);
     loadConsData(apiKey);
+    loadSentData(apiKey);
 
   } catch (err) {
     showLoading(false);
@@ -1069,6 +1164,210 @@ function renderConsChart() {
               borderColor: item.dataset.borderColor,
               backgroundColor: item.dataset.borderColor,
             }),
+          }
+        }
+      }
+    }
+  });
+}
+
+
+// ── 消費者信心觀察 ──
+let sentData = { conf: [], mich: [] };
+let sentChart = null;
+let sentGran  = 'month';
+let sentRange = 'ALL';
+
+function setSentGran(g, btn) {
+  sentGran = g;
+  document.querySelectorAll('[data-sgran]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (sentData.conf.length) renderSentChart();
+}
+
+function setSentRange(r, btn) {
+  sentRange = r;
+  document.querySelectorAll('[data-srange]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (sentData.conf.length) renderSentChart();
+}
+
+function applySentRange(data) {
+  if (sentRange === 'ALL') return data;
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - parseInt(sentRange));
+  return data.filter(d => d.date >= cutoff);
+}
+
+function aggSentYearly(data) {
+  const map = {};
+  data.forEach(d => {
+    const key = d.date.getFullYear();
+    if (!map[key]) map[key] = { sum: 0, count: 0, date: new Date(key, 0, 1) };
+    map[key].sum += d.value; map[key].count++;
+  });
+  return Object.values(map).map(v => ({ date: v.date, value: v.sum / v.count }));
+}
+
+async function loadSentData(apiKey) {
+  document.getElementById('sent-loading').style.display = 'flex';
+  document.getElementById('sent-intro').style.display   = 'none';
+
+  try {
+    const [rawConf, rawMich] = await Promise.all([
+      fetchConsSeries('CONCCONF', apiKey),
+      fetchConsSeries('UMCSENT',  apiKey),
+    ]);
+
+    sentData.conf = rawConf;
+    sentData.mich = rawMich;
+
+    updateSentStats();
+    renderSentChart();
+
+    document.getElementById('sent-stats-row').style.display = 'grid';
+    document.getElementById('sent-legend').style.display    = 'flex';
+    document.getElementById('sent-note').style.display      = 'block';
+    document.getElementById('sent-loading').style.display   = 'none';
+
+  } catch(err) {
+    document.getElementById('sent-loading').style.display  = 'none';
+    document.getElementById('sent-error-msg').textContent  = '消費者信心數據載入失敗：' + err.message;
+    document.getElementById('sent-error').style.display    = 'flex';
+  }
+}
+
+function updateSentStats() {
+  const setStat = (valId, chgId, dateId, ma3Id, momId, data) => {
+    if (!data.length) return;
+    const latest = data[data.length - 1];
+    const prev   = data.length > 1 ? data[data.length - 2] : latest;
+    const diff   = latest.value - prev.value;
+    const el = id => document.getElementById(id);
+
+    el(valId).textContent  = latest.value.toFixed(1);
+    el(valId).className    = 'stat-value ' + (latest.value >= prev.value ? 'down' : 'up');
+    el(chgId).textContent  = (diff >= 0 ? '▲ ' : '▼ ') + Math.abs(diff).toFixed(1) + ' pts vs 上月';
+    el(chgId).className    = 'stat-change ' + (diff >= 0 ? 'down' : 'up');
+    el(dateId).textContent = latest.date.toLocaleDateString('zh-TW', { year:'numeric', month:'long' });
+    if (ma3Id) {
+      const ma3 = data.slice(-3).reduce((a,b) => a + b.value, 0) / 3;
+      el(ma3Id).textContent = ma3.toFixed(1);
+    }
+    if (momId) {
+      el(momId).textContent = (diff >= 0 ? '+' : '') + diff.toFixed(1);
+      el(momId).className   = 'stat-value ' + (diff >= 0 ? 'down' : 'up');
+    }
+  };
+
+  setStat('sent-conf-val','sent-conf-chg','sent-conf-date','sent-conf-ma3', null,          sentData.conf);
+  setStat('sent-mich-val','sent-mich-chg','sent-mich-date','sent-mich-ma3','sent-mich-mom',sentData.mich);
+}
+
+function renderSentChart() {
+  let conf = applySentRange(sentData.conf);
+  let mich = applySentRange(sentData.mich);
+
+  if (sentGran === 'year') { conf = aggSentYearly(conf); mich = aggSentYearly(mich); }
+
+  // Align by year-month
+  const toYM = d => d.date.getFullYear() * 100 + d.date.getMonth();
+  const confMap = Object.fromEntries(conf.map(d => [toYM(d), d.value]));
+  const michMap = Object.fromEntries(mich.map(d => [toYM(d), d.value]));
+  const allYMs  = [...new Set([...conf.map(toYM), ...mich.map(toYM)])].sort();
+
+  const ymToDate = ym => new Date(Math.floor(ym/100), ym%100, 1);
+  const fmtLabel = ym => {
+    const d = ymToDate(ym);
+    if (sentGran === 'year') return d.getFullYear().toString();
+    return d.toLocaleDateString('zh-TW', { year:'numeric', month:'short' });
+  };
+
+  const labels   = allYMs.map(fmtLabel);
+  const confVals = allYMs.map(ym => confMap[ym] !== undefined ? confMap[ym] : null);
+  const michVals = allYMs.map(ym => michMap[ym] !== undefined ? michMap[ym] : null);
+
+  const canvas = document.getElementById('sent-chart');
+  canvas.style.display = 'block';
+  if (sentChart) { sentChart.destroy(); sentChart = null; }
+
+  const ctx = canvas.getContext('2d');
+
+  sentChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '諮商會消費者信心',
+          data: confVals,
+          borderColor: '#b060ff',
+          backgroundColor: 'rgba(176,96,255,0.08)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: '#b060ff',
+          tension: 0.3,
+          fill: false,
+          spanGaps: true,
+          yAxisID: 'yConf',
+        },
+        {
+          label: '密西根大學消費者信心',
+          data: michVals,
+          borderColor: '#ff7040',
+          backgroundColor: 'rgba(255,112,64,0.08)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: '#ff7040',
+          tension: 0.3,
+          fill: false,
+          spanGaps: true,
+          yAxisID: 'yMich',
+        },
+      ]
+    },
+    plugins: [recessionPlugin(allYMs.map(ym => ({ date: ymToDate(ym) })))],
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 600, easing: 'easeOutQuart' },
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: {
+          grid:   { color: 'rgba(30,45,61,0.8)', lineWidth: 1 },
+          border: { color: '#1e2d3d' },
+          ticks:  { color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }
+        },
+        yConf: {
+          position: 'left',
+          grid:   { color: 'rgba(30,45,61,0.8)', lineWidth: 1 },
+          border: { color: '#1e2d3d', dash: [4,4] },
+          ticks:  { color: '#b060ff', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v.toFixed(0) },
+          title:  { display: true, text: '諮商會 (1985=100)', color: '#b060ff', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+        },
+        yMich: {
+          position: 'right',
+          grid:   { drawOnChartArea: false },
+          border: { color: '#1e2d3d', dash: [4,4] },
+          ticks:  { color: '#ff7040', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v.toFixed(0) },
+          title:  { display: true, text: '密大 (1966Q1=100)', color: '#ff7040', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0d1318',
+          borderColor: '#2a4060', borderWidth: 1,
+          titleColor: '#8090a0', bodyColor: '#8090a0',
+          padding: 12,
+          titleFont: { family: "'JetBrains Mono', monospace", size: 11 },
+          bodyFont:  { family: "'JetBrains Mono', monospace", size: 11 },
+          callbacks: {
+            title: items => '📅 ' + items[0].label,
+            label: item => item.dataset.label + '：' + (item.parsed.y !== null ? item.parsed.y.toFixed(1) : 'N/A'),
+            labelColor: item => ({ borderColor: item.dataset.borderColor, backgroundColor: item.dataset.borderColor }),
           }
         }
       }

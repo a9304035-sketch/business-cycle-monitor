@@ -766,9 +766,12 @@ async function loadData() {
     document.getElementById('chart-legend').style.display = 'flex';
     document.getElementById('chart-note').style.display   = 'block';
     showLoading(false);
-    loadConsData(apiKey);
-    loadSentData(apiKey);
-    loadInvData(apiKey);
+    // 循序載入避免 Vercel 併發限制
+    loadConsData(apiKey)
+      .then(() => new Promise(r => setTimeout(r, 500)))
+      .then(() => loadSentData(apiKey))
+      .then(() => new Promise(r => setTimeout(r, 500)))
+      .then(() => loadInvData(apiKey));
 
   } catch (err) {
     showLoading(false);

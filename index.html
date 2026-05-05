@@ -632,6 +632,98 @@
   </div>
 
 
+  <!-- ── 民間投資 ── -->
+  <div style="height:32px"></div>
+
+  <div class="stats-row" id="inv-stats-row" style="display:none">
+    <div class="stat-card">
+      <div class="stat-label" style="color:#00c8e0">實質民間固定投資（最新季）</div>
+      <div class="stat-value" id="inv-prfi-val">—</div>
+      <div class="stat-change" id="inv-prfi-chg" style="color:var(--text-dim)">—</div>
+      <div class="stat-date" id="inv-prfi-date">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color:#f0a500">耐久財核心訂單（最新月）</div>
+      <div class="stat-value" id="inv-dur-val">—</div>
+      <div class="stat-change" id="inv-dur-chg" style="color:var(--text-dim)">—</div>
+      <div class="stat-date" id="inv-dur-date">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">固定投資 QoQ 季增率</div>
+      <div class="stat-value" id="inv-prfi-qoq">—</div>
+      <div class="stat-change" style="color:var(--text-dim)">vs 上季</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">耐久財訂單 MoM</div>
+      <div class="stat-value" id="inv-dur-mom">—</div>
+      <div class="stat-change" style="color:var(--text-dim)">vs 上月</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">耐久財 3M 均值</div>
+      <div class="stat-value" id="inv-dur-ma3">—</div>
+      <div class="stat-change" style="color:var(--text-dim)">3個月移動平均</div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-toolbar">
+      <div>
+        <div class="section-title-block">
+          <h2>民間投資</h2>
+          <div class="series-id">FRED: PRFI（季）· ADXTNO（月）— 千億美元 / 10億美元</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="toolbar-label">時間刻度</span>
+          <div class="toggle-group">
+            <button class="toggle-btn active" data-igran="month" onclick="setInvGran('month',this)">月</button>
+            <button class="toggle-btn"        data-igran="year"  onclick="setInvGran('year',this)">年</button>
+            <button class="toggle-btn"        data-igran="all"   onclick="setInvGran('all',this)">全部</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="toolbar-label">區間</span>
+          <div class="range-group">
+            <button class="range-btn" data-irange="3Y"  onclick="setInvRange('3Y',this)">3Y</button>
+            <button class="range-btn" data-irange="5Y"  onclick="setInvRange('5Y',this)">5Y</button>
+            <button class="range-btn" data-irange="10Y" onclick="setInvRange('10Y',this)">10Y</button>
+            <button class="range-btn active" data-irange="ALL" onclick="setInvRange('ALL',this)">全部</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-wrapper">
+      <div id="inv-intro" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:380px;gap:14px;color:var(--text-dim)">
+        <div style="font-size:48px;opacity:0.4">🏗️</div>
+        <div style="font-family:var(--font-display);font-size:20px;letter-spacing:3px;color:var(--text-secondary)">等待數據載入</div>
+        <div style="font-family:var(--font-mono);font-size:11px;text-align:center;line-height:1.8">載入初領數據後<br/>民間投資數據將同步抓取</div>
+      </div>
+      <div id="inv-loading" class="overlay" style="display:none">
+        <div class="spinner"></div>
+        <div class="overlay-text">正在抓取民間投資數據...</div>
+      </div>
+      <div id="inv-error" class="overlay" style="display:none">
+        <div class="error-icon">⚠️</div>
+        <div class="error-msg" id="inv-error-msg"></div>
+      </div>
+      <canvas id="inv-chart" style="display:none"></canvas>
+    </div>
+
+    <div class="chart-legend" id="inv-legend" style="display:none">
+      <div class="legend-item"><div class="legend-swatch" style="background:#00c8e0;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>實質民間固定投資（千億美元，左軸）</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#f0a500;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>耐久財核心訂單—非國防非飛機（10億美元，右軸）</span></div>
+      <div class="legend-item"><div class="legend-swatch recession"></div><span>NBER 景氣衰退期</span></div>
+    </div>
+
+    <div id="inv-note" style="display:none;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#4a5a6a;letter-spacing:0.5px">
+      * 實質民間固定投資：季度，千億美元（÷100），季節性調整年率 ／ 耐久財核心訂單（ADXTNO）：月度，10億美元（÷1000），排除國防及飛機
+    </div>
+    <div class="source-tag">SOURCE: FRED / ST. LOUIS FED</div>
+  </div>
+
+
 </main>
 
 <script>
@@ -680,6 +772,7 @@ async function loadData() {
     showLoading(false);
     loadConsData(apiKey);
     loadSentData(apiKey);
+    loadInvData(apiKey);
 
   } catch (err) {
     showLoading(false);
@@ -1307,6 +1400,247 @@ function renderSentChart() {
           callbacks: {
             title: items => '📅 ' + items[0].label,
             label: item => item.dataset.label + '：' + (item.parsed.y !== null ? item.parsed.y.toFixed(1) : 'N/A'),
+            labelColor: item => ({ borderColor: item.dataset.borderColor, backgroundColor: item.dataset.borderColor }),
+          }
+        }
+      }
+    }
+  });
+}
+
+
+// ── 民間投資 ──
+let invData  = { prfi: [], dur: [] };
+let invChart = null;
+let invGran  = 'month';
+let invRange = 'ALL';
+
+function setInvGran(g, btn) {
+  invGran = g;
+  document.querySelectorAll('[data-igran]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (invData.dur.length) renderInvChart();
+}
+
+function setInvRange(r, btn) {
+  invRange = r;
+  document.querySelectorAll('[data-irange]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (invData.dur.length) renderInvChart();
+}
+
+function applyInvRange(data) {
+  if (invRange === 'ALL') return data;
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - parseInt(invRange));
+  return data.filter(d => d.date >= cutoff);
+}
+
+function aggInvYearly(data) {
+  const map = {};
+  data.forEach(d => {
+    const k = d.date.getFullYear();
+    if (!map[k]) map[k] = { sum: 0, count: 0, date: new Date(k, 0, 1) };
+    map[k].sum += d.value; map[k].count++;
+  });
+  return Object.values(map).map(v => ({ date: v.date, value: v.sum / v.count }));
+}
+
+// Expand quarterly data to monthly by repeating value for each month in quarter
+function expandQuarterlyToMonthly(qData) {
+  const result = [];
+  qData.forEach(d => {
+    const yr = d.date.getFullYear();
+    const mo = d.date.getMonth(); // 0,3,6,9
+    for (let i = 0; i < 3; i++) {
+      result.push({ date: new Date(yr, mo + i, 1), value: d.value });
+    }
+  });
+  return result;
+}
+
+async function loadInvData(apiKey) {
+  document.getElementById('inv-loading').style.display = 'flex';
+  document.getElementById('inv-intro').style.display   = 'none';
+  try {
+    const [rawPrfi, rawDur] = await Promise.all([
+      fetchConsSeries('PRFI',   apiKey),
+      fetchConsSeries('ADXTNO', apiKey),
+    ]);
+
+    // PRFI: billions of chained dollars → divide by 100 = 千億
+    invData.prfi = rawPrfi.map(d => ({ date: d.date, value: d.value / 100 }));
+    // ADXTNO: millions of dollars → divide by 1000 = 10億
+    invData.dur  = rawDur.map(d => ({ date: d.date, value: d.value / 1000 }));
+
+    updateInvStats();
+    renderInvChart();
+
+    document.getElementById('inv-stats-row').style.display = 'grid';
+    document.getElementById('inv-legend').style.display    = 'flex';
+    document.getElementById('inv-note').style.display      = 'block';
+    document.getElementById('inv-loading').style.display   = 'none';
+  } catch(err) {
+    document.getElementById('inv-loading').style.display  = 'none';
+    document.getElementById('inv-error-msg').textContent  = '民間投資數據載入失敗：' + err.message;
+    document.getElementById('inv-error').style.display    = 'flex';
+  }
+}
+
+function updateInvStats() {
+  const el = id => document.getElementById(id);
+
+  // PRFI stats
+  if (invData.prfi.length) {
+    const latest = invData.prfi[invData.prfi.length - 1];
+    const prev   = invData.prfi[invData.prfi.length - 2];
+    const diff   = latest.value - prev.value;
+    const qoq    = ((diff / prev.value) * 100).toFixed(1);
+    el('inv-prfi-val').textContent  = latest.value.toFixed(1) + ' 千億';
+    el('inv-prfi-date').textContent = latest.date.toLocaleDateString('zh-TW', { year:'numeric', month:'long' });
+    el('inv-prfi-chg').textContent  = (diff >= 0 ? '▲ ' : '▼ ') + Math.abs(diff).toFixed(1) + ' vs 上季';
+    el('inv-prfi-chg').className    = 'stat-change ' + (diff >= 0 ? 'down' : 'up');
+    el('inv-prfi-qoq').textContent  = (qoq >= 0 ? '+' : '') + qoq + '%';
+    el('inv-prfi-qoq').className    = 'stat-value ' + (parseFloat(qoq) >= 0 ? 'down' : 'up');
+  }
+
+  // Durable goods stats
+  if (invData.dur.length) {
+    const latest = invData.dur[invData.dur.length - 1];
+    const prev   = invData.dur[invData.dur.length - 2];
+    const diff   = latest.value - prev.value;
+    const mom    = ((diff / prev.value) * 100).toFixed(1);
+    const ma3    = invData.dur.slice(-3).reduce((a,b) => a + b.value, 0) / 3;
+    el('inv-dur-val').textContent   = latest.value.toFixed(1) + ' 10億';
+    el('inv-dur-date').textContent  = latest.date.toLocaleDateString('zh-TW', { year:'numeric', month:'long' });
+    el('inv-dur-chg').textContent   = (diff >= 0 ? '▲ ' : '▼ ') + Math.abs(diff).toFixed(1) + ' 10億 vs 上月';
+    el('inv-dur-chg').className     = 'stat-change ' + (diff >= 0 ? 'down' : 'up');
+    el('inv-dur-mom').textContent   = (mom >= 0 ? '+' : '') + mom + '%';
+    el('inv-dur-mom').className     = 'stat-value ' + (parseFloat(mom) >= 0 ? 'down' : 'up');
+    el('inv-dur-ma3').textContent   = ma3.toFixed(1) + ' 10億';
+  }
+}
+
+function renderInvChart() {
+  const toYM = d => d.date.getFullYear() * 100 + d.date.getMonth();
+
+  // Apply range & granularity
+  let prfiRaw = applyInvRange(invData.prfi);
+  let durRaw  = applyInvRange(invData.dur);
+
+  let prfiSeries, durSeries;
+
+  if (invGran === 'year') {
+    prfiSeries = aggInvYearly(prfiRaw);
+    durSeries  = aggInvYearly(durRaw);
+  } else {
+    // Expand quarterly PRFI to monthly for alignment
+    prfiSeries = expandQuarterlyToMonthly(prfiRaw);
+    durSeries  = durRaw;
+  }
+
+  // Build unified monthly timeline from dur (monthly is denser)
+  const base = invGran === 'year' ? durSeries : durSeries;
+  const baseYMs = base.map(toYM);
+  const prfiMap = Object.fromEntries(prfiSeries.map(d => [toYM(d), d.value]));
+  const durMap  = Object.fromEntries(durSeries.map(d => [toYM(d), d.value]));
+  const allYMs  = [...new Set([...baseYMs])].sort();
+
+  const ymToDate = ym => new Date(Math.floor(ym / 100), ym % 100, 1);
+  const fmtLabel = ym => {
+    const d = ymToDate(ym);
+    if (invGran === 'year') return d.getFullYear().toString();
+    return d.toLocaleDateString('zh-TW', { year:'numeric', month:'short' });
+  };
+
+  const labels   = allYMs.map(fmtLabel);
+  const prfiVals = allYMs.map(ym => prfiMap[ym] !== undefined ? prfiMap[ym] : null);
+  const durVals  = allYMs.map(ym => durMap[ym]  !== undefined ? durMap[ym]  : null);
+
+  const canvas = document.getElementById('inv-chart');
+  canvas.style.display = 'block';
+  if (invChart) { invChart.destroy(); invChart = null; }
+  const ctx = canvas.getContext('2d');
+
+  invChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '實質民間固定投資（千億美元）',
+          data: prfiVals,
+          borderColor: '#00c8e0',
+          backgroundColor: 'rgba(0,200,224,0.08)',
+          borderWidth: 2,
+          pointRadius: invGran === 'year' ? 3 : 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: '#00c8e0',
+          tension: 0.3,
+          fill: false,
+          spanGaps: true,
+          yAxisID: 'yPrfi',
+        },
+        {
+          label: '耐久財核心訂單（10億美元）',
+          data: durVals,
+          borderColor: '#f0a500',
+          backgroundColor: 'rgba(240,165,0,0.08)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: '#f0a500',
+          tension: 0.2,
+          fill: false,
+          spanGaps: false,
+          yAxisID: 'yDur',
+        },
+      ]
+    },
+    plugins: [recessionPlugin(allYMs.map(ym => ({ date: ymToDate(ym) })))],
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 600, easing: 'easeOutQuart' },
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: {
+          grid:   { color: 'rgba(30,45,61,0.8)', lineWidth: 1 },
+          border: { color: '#1e2d3d' },
+          ticks:  { color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }
+        },
+        yPrfi: {
+          position: 'left',
+          grid:   { color: 'rgba(30,45,61,0.8)', lineWidth: 1 },
+          border: { color: '#1e2d3d', dash: [4,4] },
+          ticks:  { color: '#00c8e0', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v.toFixed(0) + ' 千億' },
+          title:  { display: true, text: '實質民間固定投資（千億美元）', color: '#00c8e0', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+        },
+        yDur: {
+          position: 'right',
+          grid:   { drawOnChartArea: false },
+          border: { color: '#1e2d3d', dash: [4,4] },
+          ticks:  { color: '#f0a500', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v.toFixed(0) + ' 10億' },
+          title:  { display: true, text: '耐久財核心訂單（10億美元）', color: '#f0a500', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0d1318',
+          borderColor: '#2a4060', borderWidth: 1,
+          titleColor: '#8090a0', bodyColor: '#8090a0',
+          padding: 12,
+          titleFont: { family: "'JetBrains Mono', monospace", size: 11 },
+          bodyFont:  { family: "'JetBrains Mono', monospace", size: 11 },
+          callbacks: {
+            title: items => '📅 ' + items[0].label,
+            label: item => {
+              const v = item.parsed.y;
+              if (v === null) return null;
+              const unit = item.datasetIndex === 0 ? ' 千億美元' : ' 10億美元';
+              return item.dataset.label.split('（')[0] + '：' + v.toFixed(1) + unit;
+            },
             labelColor: item => ({ borderColor: item.dataset.borderColor, backgroundColor: item.dataset.borderColor }),
           }
         }

@@ -1167,14 +1167,14 @@ function setSentGran(g, btn) {
   sentGran = g;
   document.querySelectorAll('[data-sgran]').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  if (sentData.conf.length) renderSentChart();
+  if (sentData.mich.length) renderSentChart();
 }
 
 function setSentRange(r, btn) {
   sentRange = r;
   document.querySelectorAll('[data-srange]').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  if (sentData.conf.length) renderSentChart();
+  if (sentData.mich.length) renderSentChart();
 }
 
 function applySentRange(data) {

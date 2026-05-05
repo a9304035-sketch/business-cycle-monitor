@@ -563,7 +563,7 @@
   <!-- Sentiment Stats -->
   <div class="stats-row" id="sent-stats-row" style="display:none">
     <div class="stat-card">
-      <div class="stat-label" style="color:#b060ff">諮商會消費者信心</div>
+      <div class="stat-label" style="color:#b060ff">OECD 消費者信心指標</div>
       <div class="stat-value" id="sent-conf-val">—</div>
       <div class="stat-change" id="sent-conf-chg" style="color:var(--text-dim)">—</div>
       <div class="stat-date" id="sent-conf-date">—</div>
@@ -597,7 +597,7 @@
       <div>
         <div class="section-title-block">
           <h2>消費者信心觀察</h2>
-          <div class="series-id">FRED: CONCCONF · UMCSENT — 指數點位</div>
+          <div class="series-id">FRED: CSCICP03USM665S · UMCSENT — 指數點位</div>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -639,13 +639,13 @@
     </div>
 
     <div class="chart-legend" id="sent-legend" style="display:none">
-      <div class="legend-item"><div class="legend-swatch" style="background:#b060ff;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>諮商會消費者信心指數 (Conference Board)</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#b060ff;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>OECD 消費者信心指標 (美國)</span></div>
       <div class="legend-item"><div class="legend-swatch" style="background:#ff7040;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>密西根大學消費者信心指數 (UMich)</span></div>
       <div class="legend-item"><div class="legend-swatch recession"></div><span>NBER 景氣衰退期</span></div>
     </div>
 
     <div id="sent-note" style="display:none;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#4a5a6a;letter-spacing:0.5px">
-      * Y 軸：指數點位 ／ 諮商會基期 1985=100 ／ 密大基期 1966:Q1=100 ／ 數據來源：FRED，每月更新
+      * Y 軸：指數點位 ／ OECD 消費者信心（長期平均=100） ／ 密大基期 1966:Q1=100 ／ 數據來源：FRED，每月更新
     </div>
     <div class="source-tag">SOURCE: FRED / ST. LOUIS FED</div>
   </div>
@@ -1215,7 +1215,7 @@ async function loadSentData(apiKey) {
 
   try {
     const [rawConf, rawMich] = await Promise.all([
-      fetchConsSeries('CONCCONF', apiKey),
+      fetchConsSeries('CSCICP03USM665S', apiKey),
       fetchConsSeries('UMCSENT',  apiKey),
     ]);
 
@@ -1299,7 +1299,7 @@ function renderSentChart() {
       labels,
       datasets: [
         {
-          label: '諮商會消費者信心',
+          label: 'OECD 消費者信心指標',
           data: confVals,
           borderColor: '#b060ff',
           backgroundColor: 'rgba(176,96,255,0.08)',
@@ -1345,7 +1345,7 @@ function renderSentChart() {
           grid:   { color: 'rgba(30,45,61,0.8)', lineWidth: 1 },
           border: { color: '#1e2d3d', dash: [4,4] },
           ticks:  { color: '#b060ff', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v.toFixed(0) },
-          title:  { display: true, text: '諮商會 (1985=100)', color: '#b060ff', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+          title:  { display: true, text: 'OECD 消費者信心', color: '#b060ff', font: { family: "'JetBrains Mono', monospace", size: 10 } },
         },
         yMich: {
           position: 'right',

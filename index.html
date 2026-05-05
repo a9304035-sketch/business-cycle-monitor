@@ -471,6 +471,92 @@
     <div class="source-tag">SOURCE: FRED / ST. LOUIS FED</div>
   </div>
 
+  <!-- ── 消費力道觀察 ── -->
+  <div style="height:32px"></div>
+
+  <div class="stats-row" id="cons-stats-row" style="display:none">
+    <div class="stat-card">
+      <div class="stat-label" style="color:#007888">實質零售銷售 MoM</div>
+      <div class="stat-value" id="cons-retail-val">—</div>
+      <div class="stat-change" id="cons-retail-chg" style="color:var(--text-dim)">—</div>
+      <div class="stat-date" id="cons-retail-date">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color:#a07010">實質個人消費支出 MoM</div>
+      <div class="stat-value" id="cons-pce-val">—</div>
+      <div class="stat-change" id="cons-pce-chg" style="color:var(--text-dim)">—</div>
+      <div class="stat-date" id="cons-pce-date">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color:#208850">實質可支配所得 MoM</div>
+      <div class="stat-value" id="cons-dpi-val">—</div>
+      <div class="stat-change" id="cons-dpi-chg" style="color:var(--text-dim)">—</div>
+      <div class="stat-date" id="cons-dpi-date">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">零售 3M 均值</div>
+      <div class="stat-value" id="cons-retail-ma3">—</div>
+      <div class="stat-change" style="color:var(--text-dim)">3個月移動平均</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">PCE 3M 均值</div>
+      <div class="stat-value" id="cons-pce-ma3">—</div>
+      <div class="stat-change" style="color:var(--text-dim)">3個月移動平均</div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-top:0">
+    <div class="chart-toolbar">
+      <div>
+        <div class="section-title-block">
+          <h2>消費力道觀察</h2>
+          <div class="series-id">FRED: RRSFS · PCECC96 · DSPIC96 — 月增率 (MoM %)</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="toolbar-label">時間刻度</span>
+          <div class="toggle-group">
+            <button class="toggle-btn active" data-cgran="3Y"  onclick="setConsRange('3Y',this)">3Y</button>
+            <button class="toggle-btn"        data-cgran="5Y"  onclick="setConsRange('5Y',this)">5Y</button>
+            <button class="toggle-btn"        data-cgran="10Y" onclick="setConsRange('10Y',this)">10Y</button>
+            <button class="toggle-btn"        data-cgran="ALL" onclick="setConsRange('ALL',this)">全部</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-wrapper">
+      <div id="cons-intro" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:380px;gap:14px;color:var(--text-dim)">
+        <div style="font-size:48px;opacity:0.4">📈</div>
+        <div style="font-family:var(--font-display);font-size:20px;letter-spacing:3px;color:var(--text-secondary)">等待數據載入</div>
+        <div style="font-family:var(--font-mono);font-size:11px;text-align:center;line-height:1.8">載入初領數據後<br/>消費力道數據將同步抓取</div>
+      </div>
+      <div id="cons-loading" class="overlay" style="display:none">
+        <div class="spinner"></div>
+        <div class="overlay-text">正在抓取消費數據...</div>
+      </div>
+      <div id="cons-error" class="overlay" style="display:none">
+        <div class="error-icon">⚠️</div>
+        <div class="error-msg" id="cons-error-msg"></div>
+      </div>
+      <canvas id="cons-chart" style="display:none"></canvas>
+    </div>
+
+    <div class="chart-legend" id="cons-legend" style="display:none">
+      <div class="legend-item"><div class="legend-swatch" style="background:#00c8e0;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>實質零售銷售</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#f0a500;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>實質個人消費支出 (PCE)</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#40c870;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>實質可支配所得</span></div>
+      <div class="legend-item"><div class="legend-swatch recession"></div><span>NBER 景氣衰退期</span></div>
+    </div>
+
+    <div id="cons-note" style="display:none;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#4a5a6a;letter-spacing:0.5px">
+      * Y 軸：月增率（MoM %） ／ 數據來源：美國商務部 BEA / Census Bureau，經 FRED 季節性調整
+    </div>
+    <div class="source-tag">SOURCE: FRED / ST. LOUIS FED</div>
+  </div>
+
+
 </main>
 
 <script>
@@ -517,6 +603,7 @@ async function loadData() {
     document.getElementById('chart-legend').style.display = 'flex';
     document.getElementById('chart-note').style.display   = 'block';
     showLoading(false);
+    loadConsData(apiKey);
 
   } catch (err) {
     showLoading(false);
@@ -741,6 +828,219 @@ function hideError() {
 function hideIntro() {
   const el = document.getElementById('intro-state');
   if (el) el.style.display = 'none';
+}
+
+
+// ── 消費力道觀察 ──
+let consData = { retail: [], pce: [], dpi: [] };
+let consChart = null;
+let consRange = '3Y';
+
+function setConsRange(r, btn) {
+  consRange = r;
+  document.querySelectorAll('[data-cgran]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (consData.retail.length) renderConsChart();
+}
+
+// 計算月增率 MoM %
+function calcMoM(data) {
+  return data.slice(1).map((d, i) => {
+    const prev = data[i].value;
+    const mom  = prev !== 0 ? ((d.value - prev) / Math.abs(prev)) * 100 : 0;
+    return { date: d.date, value: parseFloat(mom.toFixed(3)) };
+  });
+}
+
+function applyConsRange(data) {
+  if (consRange === 'ALL') return data;
+  const years = parseInt(consRange);
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - years);
+  return data.filter(d => d.date >= cutoff);
+}
+
+async function fetchConsSeries(seriesId, apiKey) {
+  const url = `/api/fred?series_id=${seriesId}&api_key=${encodeURIComponent(apiKey)}`;
+  const res  = await fetch(url);
+  const json = await res.json();
+  if (!json.observations) throw new Error(`無法取得 ${seriesId} 數據`);
+  return json.observations
+    .filter(o => o.value !== '.')
+    .map(o => ({ date: new Date(o.date), value: parseFloat(o.value) }));
+}
+
+async function loadConsData(apiKey) {
+  document.getElementById('cons-loading').style.display = 'flex';
+  document.getElementById('cons-intro').style.display   = 'none';
+
+  try {
+    const [rawRetail, rawPce, rawDpi] = await Promise.all([
+      fetchConsSeries('RRSFS',   apiKey),
+      fetchConsSeries('PCECC96', apiKey),
+      fetchConsSeries('DSPIC96', apiKey),
+    ]);
+
+    consData.retail = calcMoM(rawRetail);
+    consData.pce    = calcMoM(rawPce);
+    consData.dpi    = calcMoM(rawDpi);
+
+    updateConsStats();
+    renderConsChart();
+
+    document.getElementById('cons-stats-row').style.display = 'grid';
+    document.getElementById('cons-legend').style.display    = 'flex';
+    document.getElementById('cons-note').style.display      = 'block';
+    document.getElementById('cons-loading').style.display   = 'none';
+
+  } catch(err) {
+    document.getElementById('cons-loading').style.display  = 'none';
+    document.getElementById('cons-error-msg').textContent  = '消費數據載入失敗：' + err.message;
+    document.getElementById('cons-error').style.display    = 'flex';
+  }
+}
+
+function updateConsStats() {
+  const setCard = (valId, chgId, dateId, ma3Id, data) => {
+    if (!data.length) return;
+    const latest = data[data.length - 1];
+    const prev   = data[data.length - 2];
+    const diff   = latest.value - (prev ? prev.value : 0);
+    const el = id => document.getElementById(id);
+
+    el(valId).textContent  = (latest.value >= 0 ? '+' : '') + latest.value.toFixed(2) + '%';
+    el(valId).className    = 'stat-value ' + (latest.value >= 0 ? 'down' : 'up');
+    el(chgId).textContent  = (diff >= 0 ? '▲ ' : '▼ ') + Math.abs(diff).toFixed(2) + '% vs 上月';
+    el(chgId).className    = 'stat-change ' + (diff >= 0 ? 'down' : 'up');
+    el(dateId).textContent = latest.date.toLocaleDateString('zh-TW', { year:'numeric', month:'long' });
+    if (ma3Id) {
+      const ma3 = data.slice(-3).reduce((a,b) => a + b.value, 0) / 3;
+      el(ma3Id).textContent = (ma3 >= 0 ? '+' : '') + ma3.toFixed(2) + '%';
+      el(ma3Id).className   = 'stat-value ' + (ma3 >= 0 ? 'down' : 'up');
+    }
+  };
+
+  setCard('cons-retail-val','cons-retail-chg','cons-retail-date','cons-retail-ma3', consData.retail);
+  setCard('cons-pce-val',   'cons-pce-chg',   'cons-pce-date',   'cons-pce-ma3',    consData.pce);
+  setCard('cons-dpi-val',   'cons-dpi-chg',   'cons-dpi-date',   null,              consData.dpi);
+}
+
+function renderConsChart() {
+  const retail = applyConsRange(consData.retail);
+  const pce    = applyConsRange(consData.pce);
+  const dpi    = applyConsRange(consData.dpi);
+
+  // Use retail dates as labels (all series are monthly)
+  const labels = retail.map(d => d.date.toLocaleDateString('zh-TW', { year:'numeric', month:'short' }));
+
+  // Align pce & dpi to same dates
+  const retailDates = retail.map(d => d.date.getTime());
+  const pceAligned  = retailDates.map(t => { const f = pce.find(d => d.date.getTime() === t); return f ? f.value : null; });
+  const dpiAligned  = retailDates.map(t => { const f = dpi.find(d => d.date.getTime() === t); return f ? f.value : null; });
+
+  const canvas = document.getElementById('cons-chart');
+  canvas.style.display = 'block';
+  if (consChart) { consChart.destroy(); consChart = null; }
+
+  const ctx = canvas.getContext('2d');
+
+  consChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '實質零售銷售',
+          data: retail.map(d => d.value),
+          borderColor: '#00c8e0',
+          backgroundColor: 'rgba(0,200,224,0.08)',
+          borderWidth: 1.8,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: '#00c8e0',
+          tension: 0.2,
+          fill: false,
+        },
+        {
+          label: '實質個人消費支出',
+          data: pceAligned,
+          borderColor: '#f0a500',
+          backgroundColor: 'rgba(240,165,0,0.08)',
+          borderWidth: 1.8,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: '#f0a500',
+          tension: 0.2,
+          fill: false,
+        },
+        {
+          label: '實質可支配所得',
+          data: dpiAligned,
+          borderColor: '#40c870',
+          backgroundColor: 'rgba(64,200,112,0.08)',
+          borderWidth: 1.8,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: '#40c870',
+          tension: 0.2,
+          fill: false,
+        },
+      ]
+    },
+    plugins: [recessionPlugin(retail)],
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 600, easing: 'easeOutQuart' },
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: {
+          grid:   { color: 'rgba(30,45,61,0.8)', lineWidth: 1 },
+          border: { color: '#1e2d3d' },
+          ticks:  { color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }
+        },
+        y: {
+          position: 'left',
+          grid:   { color: 'rgba(30,45,61,0.8)', lineWidth: 1 },
+          border: { color: '#1e2d3d', dash: [4,4] },
+          ticks:  {
+            color: '#4a5a6a',
+            font:  { family: "'JetBrains Mono', monospace", size: 10 },
+            callback: v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%',
+          },
+          title: {
+            display: true,
+            text: '月增率 (MoM %)',
+            color: '#4a5a6a',
+            font: { family: "'JetBrains Mono', monospace", size: 10 },
+          }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0d1318',
+          borderColor: '#2a4060', borderWidth: 1,
+          titleColor: '#8090a0', bodyColor: '#8090a0',
+          padding: 12,
+          titleFont: { family: "'JetBrains Mono', monospace", size: 11 },
+          bodyFont:  { family: "'JetBrains Mono', monospace", size: 11 },
+          callbacks: {
+            title: items => '📅 ' + items[0].label,
+            label: item => {
+              const v = item.parsed.y;
+              const sign = v >= 0 ? '+' : '';
+              return item.dataset.label + '：' + sign + v.toFixed(2) + '%';
+            },
+            labelColor: item => ({
+              borderColor: item.dataset.borderColor,
+              backgroundColor: item.dataset.borderColor,
+            }),
+          }
+        }
+      }
+    }
+  });
 }
 
 document.getElementById('api-key-input').addEventListener('keydown', e => {

@@ -1054,11 +1054,11 @@ async function loadConsData(apiKey) {
   document.getElementById('cons-intro').style.display   = 'none';
 
   try {
-    const [rawRetail, rawPce, rawDpi] = await Promise.all([
-      fetchConsSeries('RSAFS', apiKey),
-      fetchConsSeries('PCE', apiKey),
-      fetchConsSeries('DSPIC96', apiKey),
-    ]);
+    const rawRetail = await fetchConsSeries('RSAFS',   apiKey);
+    await new Promise(r => setTimeout(r, 1000));
+    const rawPce    = await fetchConsSeries('PCE',     apiKey);
+    await new Promise(r => setTimeout(r, 1000));
+    const rawDpi    = await fetchConsSeries('DSPIC96', apiKey);
 
     consData.retail = calcMoM(rawRetail);
     consData.pce    = calcMoM(rawPce);   // PCE is a level series, calculate MoM
@@ -1469,10 +1469,9 @@ async function loadInvData(apiKey) {
   document.getElementById('inv-loading').style.display = 'flex';
   document.getElementById('inv-intro').style.display   = 'none';
   try {
-    const [rawPrfi, rawDur] = await Promise.all([
-      fetchConsSeries('FPIC1', apiKey),
-      fetchConsSeries('ADXTNO', apiKey),
-    ]);
+    const rawPrfi = await fetchConsSeries('FPIC1',   apiKey);
+    await new Promise(r => setTimeout(r, 1000));
+    const rawDur  = await fetchConsSeries('ADXTNO', apiKey);
 
     // Keep raw for stats panel
     invData.prfiRaw = rawPrfi;

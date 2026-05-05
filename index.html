@@ -563,21 +563,10 @@
   <!-- Sentiment Stats -->
   <div class="stats-row" id="sent-stats-row" style="display:none">
     <div class="stat-card">
-      <div class="stat-label" style="color:#b060ff">OECD 消費者信心指標</div>
-      <div class="stat-value" id="sent-conf-val">—</div>
-      <div class="stat-change" id="sent-conf-chg" style="color:var(--text-dim)">—</div>
-      <div class="stat-date" id="sent-conf-date">—</div>
-    </div>
-    <div class="stat-card">
       <div class="stat-label" style="color:#ff7040">密西根大學消費者信心</div>
       <div class="stat-value" id="sent-mich-val">—</div>
       <div class="stat-change" id="sent-mich-chg" style="color:var(--text-dim)">—</div>
       <div class="stat-date" id="sent-mich-date">—</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">諮商會 3M 均值</div>
-      <div class="stat-value" id="sent-conf-ma3">—</div>
-      <div class="stat-change" style="color:var(--text-dim)">3個月移動平均</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">密大 3M 均值</div>
@@ -597,7 +586,7 @@
       <div>
         <div class="section-title-block">
           <h2>消費者信心觀察</h2>
-          <div class="series-id">FRED: CSCICP03USM665S · UMCSENT — 指數點位</div>
+          <div class="series-id">FRED: UMCSENT — 指數點位</div>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -639,13 +628,12 @@
     </div>
 
     <div class="chart-legend" id="sent-legend" style="display:none">
-      <div class="legend-item"><div class="legend-swatch" style="background:#b060ff;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>OECD 消費者信心指標 (美國)</span></div>
       <div class="legend-item"><div class="legend-swatch" style="background:#ff7040;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>密西根大學消費者信心指數 (UMich)</span></div>
       <div class="legend-item"><div class="legend-swatch recession"></div><span>NBER 景氣衰退期</span></div>
     </div>
 
     <div id="sent-note" style="display:none;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#4a5a6a;letter-spacing:0.5px">
-      * Y 軸：指數點位 ／ OECD 消費者信心（長期平均=100） ／ 密大基期 1966:Q1=100 ／ 數據來源：FRED，每月更新
+      * Y 軸：指數點位 ／ 密大基期 1966Q1=100 ／ 密大基期 1966:Q1=100 ／ 數據來源：FRED，每月更新
     </div>
     <div class="source-tag">SOURCE: FRED / ST. LOUIS FED</div>
   </div>
@@ -1218,12 +1206,8 @@ async function loadSentData(apiKey) {
   document.getElementById('sent-intro').style.display   = 'none';
 
   try {
-    const [rawConf, rawMich] = await Promise.all([
-      fetchConsSeries('CSCICP03USM665S', apiKey),
-      fetchConsSeries('UMCSENT',  apiKey),
-    ]);
-
-    sentData.conf = rawConf;
+    const rawMich = await fetchConsSeries('UMCSENT', apiKey);
+    sentData.conf = [];
     sentData.mich = rawMich;
 
     updateSentStats();
@@ -1264,22 +1248,14 @@ function updateSentStats() {
     }
   };
 
-  setStat('sent-conf-val','sent-conf-chg','sent-conf-date','sent-conf-ma3', null,          sentData.conf);
   setStat('sent-mich-val','sent-mich-chg','sent-mich-date','sent-mich-ma3','sent-mich-mom',sentData.mich);
 }
 
 function renderSentChart() {
-  let conf = applySentRange(sentData.conf);
   let mich = applySentRange(sentData.mich);
+  if (sentGran === 'year') mich = aggSentYearly(mich);
 
-  if (sentGran === 'year') { conf = aggSentYearly(conf); mich = aggSentYearly(mich); }
-
-  // Align by year-month
   const toYM = d => d.date.getFullYear() * 100 + d.date.getMonth();
-  const confMap = Object.fromEntries(conf.map(d => [toYM(d), d.value]));
-  const michMap = Object.fromEntries(mich.map(d => [toYM(d), d.value]));
-  const allYMs  = [...new Set([...conf.map(toYM), ...mich.map(toYM)])].sort();
-
   const ymToDate = ym => new Date(Math.floor(ym/100), ym%100, 1);
   const fmtLabel = ym => {
     const d = ymToDate(ym);
@@ -1287,9 +1263,9 @@ function renderSentChart() {
     return d.toLocaleDateString('zh-TW', { year:'numeric', month:'short' });
   };
 
+  const allYMs   = mich.map(toYM);
   const labels   = allYMs.map(fmtLabel);
-  const confVals = allYMs.map(ym => confMap[ym] !== undefined ? confMap[ym] : null);
-  const michVals = allYMs.map(ym => michMap[ym] !== undefined ? michMap[ym] : null);
+  const michVals = mich.map(d => d.value);
 
   const canvas = document.getElementById('sent-chart');
   canvas.style.display = 'block';
@@ -1303,32 +1279,17 @@ function renderSentChart() {
       labels,
       datasets: [
         {
-          label: 'OECD 消費者信心指標',
-          data: confVals,
-          borderColor: '#b060ff',
-          backgroundColor: 'rgba(176,96,255,0.08)',
-          borderWidth: 2,
-          pointRadius: 0,
-          pointHoverRadius: 5,
-          pointHoverBackgroundColor: '#b060ff',
-          tension: 0.3,
-          fill: false,
-          spanGaps: true,
-          yAxisID: 'yConf',
-        },
-        {
           label: '密西根大學消費者信心',
           data: michVals,
           borderColor: '#ff7040',
-          backgroundColor: 'rgba(255,112,64,0.08)',
+          backgroundColor: 'rgba(255,112,64,0.12)',
           borderWidth: 2,
           pointRadius: 0,
           pointHoverRadius: 5,
           pointHoverBackgroundColor: '#ff7040',
           tension: 0.3,
-          fill: false,
+          fill: true,
           spanGaps: true,
-          yAxisID: 'yMich',
         },
       ]
     },
@@ -1344,19 +1305,12 @@ function renderSentChart() {
           border: { color: '#1e2d3d' },
           ticks:  { color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 }
         },
-        yConf: {
+        y: {
           position: 'left',
           grid:   { color: 'rgba(30,45,61,0.8)', lineWidth: 1 },
           border: { color: '#1e2d3d', dash: [4,4] },
-          ticks:  { color: '#b060ff', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v.toFixed(0) },
-          title:  { display: true, text: 'OECD 消費者信心', color: '#b060ff', font: { family: "'JetBrains Mono', monospace", size: 10 } },
-        },
-        yMich: {
-          position: 'right',
-          grid:   { drawOnChartArea: false },
-          border: { color: '#1e2d3d', dash: [4,4] },
           ticks:  { color: '#ff7040', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v.toFixed(0) },
-          title:  { display: true, text: '密大 (1966Q1=100)', color: '#ff7040', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+          title:  { display: true, text: '密大消費者信心指數 (1966Q1=100)', color: '#ff7040', font: { family: "'JetBrains Mono', monospace", size: 10 } },
         },
       },
       plugins: {

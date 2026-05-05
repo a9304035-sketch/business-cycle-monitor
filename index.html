@@ -510,7 +510,7 @@
       <div>
         <div class="section-title-block">
           <h2>消費力道觀察</h2>
-          <div class="series-id">FRED: RRSFS · PCECC96 · DSPIC96 — 月增率 (MoM %)</div>
+          <div class="series-id">FRED: RRSFS · DPCERC1M027SBEA · DSPIC96 — 月增率 (MoM %)</div>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -877,12 +877,12 @@ async function loadConsData(apiKey) {
   try {
     const [rawRetail, rawPce, rawDpi] = await Promise.all([
       fetchConsSeries('RRSFS',   apiKey),
-      fetchConsSeries('PCECC96', apiKey),
+      fetchConsSeries('DPCERC1M027SBEA', apiKey),
       fetchConsSeries('DSPIC96', apiKey),
     ]);
 
     consData.retail = calcMoM(rawRetail);
-    consData.pce    = calcMoM(rawPce);
+    consData.pce    = rawPce;   // DPCERC1M027SBEA is already MoM %
     consData.dpi    = calcMoM(rawDpi);
 
     updateConsStats();

@@ -1543,7 +1543,7 @@ function updateInvStats() {
     el('inv-dur-mom').textContent      = (parseFloat(mom) >= 0 ? '+' : '') + mom + '%';
     el('inv-dur-mom').className        = 'stat-value ' + (parseFloat(mom) >= 0 ? 'down' : 'up');
     el('inv-dur-mom-prev').textContent = '前月 MoM：' + (() => { const p2 = raw[raw.length - 3]; return p2 ? (((prev.value - p2.value)/p2.value)*100).toFixed(1) + '%' : '—'; })();
-    el('inv-dur-ma3').textContent      = (ma3raw / 100).toFixed(1) + ' 億';
+    if (el('inv-dur-ma3')) el('inv-dur-ma3').textContent = (ma3raw / 100).toFixed(1) + ' 億';
   }
 }
 

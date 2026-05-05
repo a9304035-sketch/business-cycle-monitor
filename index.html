@@ -222,4 +222,91 @@ function setRange(r,btn){rangeKey=r;document.querySelectorAll('[data-range]').fo
 function toMonthly(data){const map={};data.forEach(d=>{const key=`${d.date.getFullYear()}-${String(d.date.getMonth()+1).padStart(2,'0')}`;if(!map[key])map[key]={sum:0,count:0,date:new Date(d.date.getFullYear(),d.date.getMonth(),1)};map[key].sum+=d.value;map[key].count++;});return Object.values(map).map(v=>({date:v.date,value:v.sum/v.count}));}
 function toYearly(data){const map={};data.forEach(d=>{const key=d.date.getFullYear();if(!map[key])map[key]={sum:0,count:0,date:new Date(key,0,1)};map[key].sum+=d.value;map[key].count++;});return Object.values(map).map(v=>({date:v.date,value:v.sum/v.count}));}
 function applyRange(data){if(rangeKey==='ALL')return data;const cutoff=new Date();cutoff.setFullYear(cutoff.getFullYear()-parseInt(rangeKey));return data.filter(d=>d.date>=cutoff);}
-functio
+function fmt(v){return(v/100).toFixed(2);}
+
+function updateStats(){
+  const d=allData;if(!d.length)return;
+  const latest=d[d.length-1],prev=d[d.length-2],diff=latest.value-prev.value,diffPct=((diff/prev.value)*100).toFixed(1);
+  const el=id=>document.getElementById(id);
+  el('stat-latest').textContent=fmt(latest.value)+' 萬';
+  el('stat-date').textContent=latest.date.toLocaleDateString('zh-TW');
+  el('stat-change').textContent=(diff>=0?'▲ ':'▼ ')+Math.abs(diff/100).toFixed(2)+'萬 ('+(diff>=0?'+':'')+diffPct+'%) vs 上週';
+  el('stat-change').className='stat-change '+(diff>=0?'up':'down');
+  const ma4=d.slice(-4).reduce((a,b)=>a+b.value,0)/4;
+  el('stat-ma4').textContent=fmt(ma4)+' 萬';
+  const thisYear=new Date().getFullYear();
+  const ytd=d.filter(x=>x.date.getFullYear()===thisYear);
+  if(ytd.length){
+    const high=ytd.reduce((a,b)=>a.value>b.value?a:b),low=ytd.reduce((a,b)=>a.value<b.value?a:b);
+    el('stat-ytd-high').textContent=fmt(high.value)+' 萬';el('stat-ytd-high-date').textContent=high.date.toLocaleDateString('zh-TW');
+    el('stat-ytd-low').textContent=fmt(low.value)+' 萬';el('stat-ytd-low-date').textContent=low.date.toLocaleDateString('zh-TW');
+  }
+  const lyDate=new Date(latest.date);lyDate.setFullYear(lyDate.getFullYear()-1);
+  const lyPoint=d.reduce((best,x)=>Math.abs(x.date-lyDate)<Math.abs(best.date-lyDate)?x:best,d[0]);
+  const yoy=((latest.value-lyPoint.value)/lyPoint.value*100).toFixed(1);
+  el('stat-yoy').textContent=(yoy>=0?'+':'')+yoy+'%';
+  el('stat-yoy').className='stat-value '+(yoy>=0?'up':'down');
+}
+
+function renderChart(){
+  let processed=allData;
+  if(granularity==='month')processed=toMonthly(processed);
+  if(granularity==='year')processed=toYearly(processed);
+  processed=applyRange(processed);
+  const labels=processed.map(d=>{
+    if(granularity==='year')return d.date.getFullYear().toString();
+    if(granularity==='month')return d.date.toLocaleDateString('zh-TW',{year:'numeric',month:'short'});
+    return d.date.toLocaleDateString('zh-TW');
+  });
+  const values=processed.map(d=>parseFloat((d.value/100).toFixed(4)));
+  const canvas=document.getElementById('main-chart');
+  canvas.style.display='block';
+  if(chart){chart.destroy();chart=null;}
+  const ctx=canvas.getContext('2d');
+  const grad=ctx.createLinearGradient(0,0,0,400);
+  grad.addColorStop(0,'rgba(240,165,0,0.30)');grad.addColorStop(0.5,'rgba(240,165,0,0.08)');grad.addColorStop(1,'rgba(240,165,0,0.00)');
+  chart=new Chart(ctx,{
+    type:'line',
+    data:{labels,datasets:[{label:'初領失業救濟金（10萬人）',data:values,borderColor:'#f0a500',borderWidth:granularity==='week'?1.5:2,backgroundColor:grad,fill:true,pointRadius:0,pointHoverRadius:5,pointHoverBackgroundColor:'#f0a500',pointHoverBorderColor:'#080c10',pointHoverBorderWidth:2,tension:granularity==='year'?0.4:0.1}]},
+    plugins:[recessionPlugin(processed)],
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:{duration:600,easing:'easeOutQuart'},interaction:{mode:'index',intersect:false},
+      scales:{
+        x:{grid:{color:'rgba(30,45,61,0.8)',lineWidth:1},border:{color:'#1e2d3d'},ticks:{color:'#4a5a6a',font:{family:"'JetBrains Mono',monospace",size:10},maxRotation:0,autoSkip:true,maxTicksLimit:12}},
+        y:{position:'left',grid:{color:'rgba(30,45,61,0.8)',lineWidth:1},border:{color:'#1e2d3d',dash:[4,4]},ticks:{color:'#4a5a6a',font:{family:"'JetBrains Mono',monospace",size:10},callback:v=>v.toFixed(1)+'萬'},title:{display:true,text:'初領失業救濟金人數（10萬人）',color:'#4a5a6a',font:{family:"'JetBrains Mono',monospace",size:10}}}
+      },
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#0d1318',borderColor:'#2a4060',borderWidth:1,titleColor:'#f0a500',bodyColor:'#8090a0',padding:12,titleFont:{family:"'JetBrains Mono',monospace",size:11},bodyFont:{family:"'JetBrains Mono',monospace",size:12},callbacks:{title:items=>'📅 '+items[0].label,label:item=>'初領失業金：'+item.parsed.y.toFixed(2)+' 萬人'}}}
+    }
+  });
+}
+
+function recessionPlugin(processed){
+  return{id:'recessionBands',beforeDraw(chart){
+    const{ctx,scales:{x,y}}=chart;ctx.save();
+    RECESSIONS.forEach(r=>{
+      const rs=new Date(r.start),re=new Date(r.end);let si=-1,ei=-1;
+      processed.forEach((d,i)=>{if(d.date>=rs&&si===-1)si=i;if(d.date<=re)ei=i;});
+      if(si===-1||ei===-1)return;
+      const x1=x.getPixelForValue(si),x2=x.getPixelForValue(ei);
+      ctx.fillStyle='rgba(224,80,80,0.12)';ctx.fillRect(x1,y.top,x2-x1,y.bottom-y.top);
+      ctx.fillStyle='rgba(224,80,80,0.35)';ctx.fillRect(x1,y.top,1,y.bottom-y.top);ctx.fillRect(x2,y.top,1,y.bottom-y.top);
+    });ctx.restore();
+  }};
+}
+
+function showLoading(show){document.getElementById('loading-overlay').style.display=show?'flex':'none';}
+function showError(msg){document.getElementById('error-msg').textContent=msg;document.getElementById('error-overlay').style.display='flex';}
+function hideError(){document.getElementById('error-overlay').style.display='none';}
+function hideIntro(){const el=document.getElementById('intro-state');if(el)el.style.display='none';}
+
+document.getElementById('api-key-input').addEventListener('keydown',e=>{if(e.key==='Enter')loadData();});
+
+// 自動讀取已儲存的 API Key
+const savedKey=localStorage.getItem('fred_api_key');
+if(savedKey){
+  document.getElementById('api-key-input').value=savedKey;
+  loadData();
+}
+</script>
+</body>
+</html>

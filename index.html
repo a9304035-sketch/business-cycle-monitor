@@ -884,7 +884,11 @@ function recessionPlugin(processed) {
   return {
     id: 'recessionBands',
     beforeDraw(chart) {
-      const { ctx, scales: { x, y } } = chart;
+      const { ctx, scales } = chart;
+      const x = scales.x;
+      // Support any y-axis name (y, yConf, yMich, etc.)
+      const y = scales.y || scales.yConf || Object.values(scales).find(s => s.axis === 'y');
+      if (!x || !y) return;
       ctx.save();
       RECESSIONS.forEach(r => {
         const rs = new Date(r.start), re = new Date(r.end);

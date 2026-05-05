@@ -766,11 +766,11 @@ async function loadData() {
     document.getElementById('chart-legend').style.display = 'flex';
     document.getElementById('chart-note').style.display   = 'block';
     showLoading(false);
-    // 循序載入避免 Vercel 併發限制
+    // 循序載入，間隔 2 秒避免 Vercel 併發限制
     loadConsData(apiKey)
-      .then(() => new Promise(r => setTimeout(r, 500)))
+      .then(() => new Promise(r => setTimeout(r, 2000)))
       .then(() => loadSentData(apiKey))
-      .then(() => new Promise(r => setTimeout(r, 500)))
+      .then(() => new Promise(r => setTimeout(r, 2000)))
       .then(() => loadInvData(apiKey));
 
   } catch (err) {
@@ -1032,14 +1032,21 @@ function applyConsRange(data) {
   return data.filter(d => d.date >= cutoff);
 }
 
-async function fetchConsSeries(seriesId, apiKey) {
-  const url = `/api/fred?series_id=${seriesId}&api_key=${encodeURIComponent(apiKey)}`;
-  const res  = await fetch(url);
-  const json = await res.json();
-  if (!json.observations) throw new Error(`無法取得 ${seriesId} 數據`);
-  return json.observations
-    .filter(o => o.value !== '.')
-    .map(o => ({ date: new Date(o.date), value: parseFloat(o.value) }));
+async function fetchConsSeries(seriesId, apiKey, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const url  = `/api/fred?series_id=${seriesId}&api_key=${encodeURIComponent(apiKey)}`;
+      const res  = await fetch(url);
+      const json = await res.json();
+      if (!json.observations) throw new Error(`無法取得 ${seriesId} 數據`);
+      return json.observations
+        .filter(o => o.value !== '.')
+        .map(o => ({ date: new Date(o.date), value: parseFloat(o.value) }));
+    } catch (err) {
+      if (i === retries - 1) throw err;
+      await new Promise(r => setTimeout(r, 1500 * (i + 1)));
+    }
+  }
 }
 
 async function loadConsData(apiKey) {

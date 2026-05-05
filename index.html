@@ -639,29 +639,29 @@
     <div class="stat-card">
       <div class="stat-label" style="color:#00c8e0">實質民間固定投資（最新季）</div>
       <div class="stat-value" id="inv-prfi-val">—</div>
-      <div class="stat-change" id="inv-prfi-chg" style="color:var(--text-dim)">—</div>
       <div class="stat-date" id="inv-prfi-date">—</div>
+      <div class="stat-change" id="inv-prfi-chg" style="color:var(--text-dim);font-size:9px">—</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label" style="color:#f0a500">耐久財核心訂單（最新月）</div>
+      <div class="stat-label" style="color:#f0a500">耐久財訂單—排除運輸（最新月）</div>
       <div class="stat-value" id="inv-dur-val">—</div>
-      <div class="stat-change" id="inv-dur-chg" style="color:var(--text-dim)">—</div>
       <div class="stat-date" id="inv-dur-date">—</div>
+      <div class="stat-change" id="inv-dur-chg" style="color:var(--text-dim);font-size:9px">—</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">固定投資 QoQ 季增率</div>
+      <div class="stat-label">固定投資 QoQ</div>
       <div class="stat-value" id="inv-prfi-qoq">—</div>
-      <div class="stat-change" style="color:var(--text-dim)">vs 上季</div>
+      <div class="stat-change" id="inv-prfi-qoq-prev" style="color:var(--text-dim);font-size:9px">—</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">耐久財訂單 MoM</div>
       <div class="stat-value" id="inv-dur-mom">—</div>
-      <div class="stat-change" style="color:var(--text-dim)">vs 上月</div>
+      <div class="stat-change" id="inv-dur-mom-prev" style="color:var(--text-dim);font-size:9px">—</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">耐久財 3M 均值</div>
+      <div class="stat-label">耐久財 3M 均值 MoM</div>
       <div class="stat-value" id="inv-dur-ma3">—</div>
-      <div class="stat-change" style="color:var(--text-dim)">3個月移動平均</div>
+      <div class="stat-change" style="color:var(--text-dim);font-size:9px">3個月移動平均</div>
     </div>
   </div>
 
@@ -670,7 +670,7 @@
       <div>
         <div class="section-title-block">
           <h2>民間投資</h2>
-          <div class="series-id">FRED: PRFI（季）· ADXTNO（月）— 千億美元 / 10億美元</div>
+          <div class="series-id">FRED: PRFI（季）· ADXTNO（月，排除運輸）— QoQ % / MoM %</div>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -712,13 +712,13 @@
     </div>
 
     <div class="chart-legend" id="inv-legend" style="display:none">
-      <div class="legend-item"><div class="legend-swatch" style="background:#00c8e0;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>實質民間固定投資（千億美元，左軸）</span></div>
-      <div class="legend-item"><div class="legend-swatch" style="background:#f0a500;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>耐久財核心訂單—非國防非飛機（10億美元，右軸）</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#00c8e0;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>實質民間固定投資 QoQ 季增率（左軸）</span></div>
+      <div class="legend-item"><div class="legend-swatch" style="background:#f0a500;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>耐久財訂單 MoM（排除運輸） 月增率（右軸）</span></div>
       <div class="legend-item"><div class="legend-swatch recession"></div><span>NBER 景氣衰退期</span></div>
     </div>
 
     <div id="inv-note" style="display:none;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#4a5a6a;letter-spacing:0.5px">
-      * 實質民間固定投資：季度，千億美元（÷100），季節性調整年率 ／ 耐久財核心訂單（ADXTNO）：月度，10億美元（÷1000），排除國防及飛機
+      * 圖表Y軸：實質民間固定投資 QoQ 季增率 ／ 耐久財訂單 MoM（排除運輸） 月增率 ／ 面板數值：億美元（1億=100M）
     </div>
     <div class="source-tag">SOURCE: FRED / ST. LOUIS FED</div>
   </div>
@@ -1468,10 +1468,18 @@ async function loadInvData(apiKey) {
       fetchConsSeries('ADXTNO', apiKey),
     ]);
 
-    // PRFI: billions of chained dollars → divide by 100 = 千億
-    invData.prfi = rawPrfi.map(d => ({ date: d.date, value: d.value / 100 }));
-    // ADXTNO: millions of dollars → divide by 1000 = 10億
-    invData.dur  = rawDur.map(d => ({ date: d.date, value: d.value / 1000 }));
+    // Keep raw for stats panel
+    invData.prfiRaw = rawPrfi;
+    invData.durRaw  = rawDur;
+    // For chart: compute QoQ% for PRFI, MoM% for ADXTNO
+    invData.prfi = rawPrfi.slice(1).map((d, i) => {
+      const prev = rawPrfi[i];
+      return { date: d.date, value: parseFloat(((d.value - prev.value) / prev.value * 100).toFixed(3)) };
+    });
+    invData.dur = rawDur.slice(1).map((d, i) => {
+      const prev = rawDur[i];
+      return { date: d.date, value: parseFloat(((d.value - prev.value) / prev.value * 100).toFixed(3)) };
+    });
 
     updateInvStats();
     renderInvChart();
@@ -1490,34 +1498,47 @@ async function loadInvData(apiKey) {
 function updateInvStats() {
   const el = id => document.getElementById(id);
 
-  // PRFI stats
-  if (invData.prfi.length) {
-    const latest = invData.prfi[invData.prfi.length - 1];
-    const prev   = invData.prfi[invData.prfi.length - 2];
+  // PRFI: raw data in billions → convert to 億 (*10), show QoQ %
+  if (invData.prfiRaw && invData.prfiRaw.length) {
+    const raw    = invData.prfiRaw;
+    const latest = raw[raw.length - 1];
+    const prev   = raw[raw.length - 2];
     const diff   = latest.value - prev.value;
     const qoq    = ((diff / prev.value) * 100).toFixed(1);
-    el('inv-prfi-val').textContent  = latest.value.toFixed(1) + ' 千億';
-    el('inv-prfi-date').textContent = latest.date.toLocaleDateString('zh-TW', { year:'numeric', month:'long' });
-    el('inv-prfi-chg').textContent  = (diff >= 0 ? '▲ ' : '▼ ') + Math.abs(diff).toFixed(1) + ' vs 上季';
-    el('inv-prfi-chg').className    = 'stat-change ' + (diff >= 0 ? 'down' : 'up');
-    el('inv-prfi-qoq').textContent  = (qoq >= 0 ? '+' : '') + qoq + '%';
-    el('inv-prfi-qoq').className    = 'stat-value ' + (parseFloat(qoq) >= 0 ? 'down' : 'up');
+    // 1 billion = 10 億
+    const valYi  = (latest.value * 10).toFixed(0);
+    const prevYi = (prev.value * 10).toFixed(0);
+    el('inv-prfi-val').textContent     = Number(valYi).toLocaleString() + ' 億';
+    el('inv-prfi-date').textContent    = latest.date.toLocaleDateString('zh-TW', { year:'numeric', month:'long' });
+    el('inv-prfi-chg').textContent     = '前期 ' + Number(prevYi).toLocaleString() + ' 億，差 ' + (diff >= 0 ? '+' : '') + (diff * 10).toFixed(0) + ' 億';
+    el('inv-prfi-qoq').textContent     = (parseFloat(qoq) >= 0 ? '+' : '') + qoq + '%';
+    el('inv-prfi-qoq').className       = 'stat-value ' + (parseFloat(qoq) >= 0 ? 'down' : 'up');
+    el('inv-prfi-qoq-prev').textContent = '前季 QoQ：' + (() => { const p2 = raw[raw.length - 3]; return p2 ? ((( prev.value - p2.value) / p2.value)*100).toFixed(1) + '%' : '—'; })();
   }
 
-  // Durable goods stats
-  if (invData.dur.length) {
-    const latest = invData.dur[invData.dur.length - 1];
-    const prev   = invData.dur[invData.dur.length - 2];
+  // ADXTNO: raw data in millions → convert to 億 (/100), show MoM %
+  if (invData.durRaw && invData.durRaw.length) {
+    const raw    = invData.durRaw;
+    const latest = raw[raw.length - 1];
+    const prev   = raw[raw.length - 2];
     const diff   = latest.value - prev.value;
     const mom    = ((diff / prev.value) * 100).toFixed(1);
-    const ma3    = invData.dur.slice(-3).reduce((a,b) => a + b.value, 0) / 3;
-    el('inv-dur-val').textContent   = latest.value.toFixed(1) + ' 10億';
-    el('inv-dur-date').textContent  = latest.date.toLocaleDateString('zh-TW', { year:'numeric', month:'long' });
-    el('inv-dur-chg').textContent   = (diff >= 0 ? '▲ ' : '▼ ') + Math.abs(diff).toFixed(1) + ' 10億 vs 上月';
-    el('inv-dur-chg').className     = 'stat-change ' + (diff >= 0 ? 'down' : 'up');
-    el('inv-dur-mom').textContent   = (mom >= 0 ? '+' : '') + mom + '%';
-    el('inv-dur-mom').className     = 'stat-value ' + (parseFloat(mom) >= 0 ? 'down' : 'up');
-    el('inv-dur-ma3').textContent   = ma3.toFixed(1) + ' 10億';
+    // 1 million = 0.01 億 → millions / 100 = 億
+    const valYi  = (latest.value / 100).toFixed(1);
+    const prevYi = (prev.value / 100).toFixed(1);
+    const ma3raw = raw.slice(-3).reduce((a,b) => a + b.value, 0) / 3;
+    const ma3mom = raw.slice(-4).length >= 2 ? (() => {
+      const s = raw.slice(-4);
+      const m = s.slice(1).map((d,i) => ((d.value - s[i].value) / s[i].value * 100));
+      return (m.reduce((a,b)=>a+b,0)/m.length).toFixed(1);
+    })() : '—';
+    el('inv-dur-val').textContent      = Number(valYi).toLocaleString() + ' 億';
+    el('inv-dur-date').textContent     = latest.date.toLocaleDateString('zh-TW', { year:'numeric', month:'long' });
+    el('inv-dur-chg').textContent      = '前期 ' + Number(prevYi).toLocaleString() + ' 億，差 ' + (diff >= 0 ? '+' : '') + (diff / 100).toFixed(1) + ' 億';
+    el('inv-dur-mom').textContent      = (parseFloat(mom) >= 0 ? '+' : '') + mom + '%';
+    el('inv-dur-mom').className        = 'stat-value ' + (parseFloat(mom) >= 0 ? 'down' : 'up');
+    el('inv-dur-mom-prev').textContent = '前月 MoM：' + (() => { const p2 = raw[raw.length - 3]; return p2 ? (((prev.value - p2.value)/p2.value)*100).toFixed(1) + '%' : '—'; })();
+    el('inv-dur-ma3').textContent      = (ma3raw / 100).toFixed(1) + ' 億';
   }
 }
 
@@ -1582,7 +1603,7 @@ function renderInvChart() {
           yAxisID: 'yPrfi',
         },
         {
-          label: '耐久財核心訂單（10億美元）',
+          label: '耐久財訂單—排除運輸（10億美元）',
           data: durVals,
           borderColor: '#f0a500',
           backgroundColor: 'rgba(240,165,0,0.08)',
@@ -1613,15 +1634,15 @@ function renderInvChart() {
           position: 'left',
           grid:   { color: 'rgba(30,45,61,0.8)', lineWidth: 1 },
           border: { color: '#1e2d3d', dash: [4,4] },
-          ticks:  { color: '#00c8e0', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v.toFixed(0) + ' 千億' },
-          title:  { display: true, text: '實質民間固定投資（千億美元）', color: '#00c8e0', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+          ticks:  { color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%' },
+          title:  { display: true, text: '變動率（%）', color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 } },
         },
         yDur: {
           position: 'right',
           grid:   { drawOnChartArea: false },
           border: { color: '#1e2d3d', dash: [4,4] },
-          ticks:  { color: '#f0a500', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v.toFixed(0) + ' 10億' },
-          title:  { display: true, text: '耐久財核心訂單（10億美元）', color: '#f0a500', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+          ticks:  { color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%' },
+          title:  { display: true, text: 'MoM %', color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 } },
         },
       },
       plugins: {
@@ -1638,8 +1659,8 @@ function renderInvChart() {
             label: item => {
               const v = item.parsed.y;
               if (v === null) return null;
-              const unit = item.datasetIndex === 0 ? ' 千億美元' : ' 10億美元';
-              return item.dataset.label.split('（')[0] + '：' + v.toFixed(1) + unit;
+              const label = item.datasetIndex === 0 ? '固定投資 QoQ' : '耐久財訂單 MoM';
+              return label + '：' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
             },
             labelColor: item => ({ borderColor: item.dataset.borderColor, backgroundColor: item.dataset.borderColor }),
           }

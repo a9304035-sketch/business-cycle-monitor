@@ -509,7 +509,7 @@
     <div class="chart-toolbar">
       <div>
         <div class="section-title-block">
-          <h2>消費力道觀察</h2>
+          <h2>民間消費</h2>
           <div class="series-id">FRED: RRSFS · PCE · DSPIC96 — 月增率 (MoM %)</div>
         </div>
       </div>
@@ -585,22 +585,15 @@
     <div class="chart-toolbar">
       <div>
         <div class="section-title-block">
-          <h2>消費者信心觀察</h2>
+          <h2>消費者信心指數</h2>
           <div class="series-id">FRED: UMCSENT — 指數點位</div>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         <div style="display:flex;align-items:center;gap:8px;">
-          <span class="toolbar-label">時間刻度</span>
-          <div class="toggle-group">
-            <button class="toggle-btn active" data-sgran="month" onclick="setSentGran('month',this)">月</button>
-            <button class="toggle-btn"        data-sgran="year"  onclick="setSentGran('year',this)">年</button>
-            <button class="toggle-btn"        data-sgran="all"   onclick="setSentGran('all',this)">全部</button>
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
           <span class="toolbar-label">區間</span>
           <div class="range-group">
+            <button class="range-btn" data-srange="1Y"  onclick="setSentRange('1Y',this)">1Y</button>
             <button class="range-btn" data-srange="3Y"  onclick="setSentRange('3Y',this)">3Y</button>
             <button class="range-btn" data-srange="5Y"  onclick="setSentRange('5Y',this)">5Y</button>
             <button class="range-btn" data-srange="10Y" onclick="setSentRange('10Y',this)">10Y</button>
@@ -1252,19 +1245,8 @@ function updateSentStats() {
 }
 
 function renderSentChart() {
-  let mich = applySentRange(sentData.mich);
-  if (sentGran === 'year') mich = aggSentYearly(mich);
-
-  const toYM = d => d.date.getFullYear() * 100 + d.date.getMonth();
-  const ymToDate = ym => new Date(Math.floor(ym/100), ym%100, 1);
-  const fmtLabel = ym => {
-    const d = ymToDate(ym);
-    if (sentGran === 'year') return d.getFullYear().toString();
-    return d.toLocaleDateString('zh-TW', { year:'numeric', month:'short' });
-  };
-
-  const allYMs   = mich.map(toYM);
-  const labels   = allYMs.map(fmtLabel);
+  const mich = applySentRange(sentData.mich);
+  const labels   = mich.map(d => d.date.toLocaleDateString('zh-TW', { year:'numeric', month:'short' }));
   const michVals = mich.map(d => d.value);
 
   const canvas = document.getElementById('sent-chart');
@@ -1293,7 +1275,7 @@ function renderSentChart() {
         },
       ]
     },
-    plugins: [recessionPlugin(allYMs.map(ym => ({ date: ymToDate(ym) })))],
+    plugins: [recessionPlugin(mich)],
     options: {
       responsive: true,
       maintainAspectRatio: false,

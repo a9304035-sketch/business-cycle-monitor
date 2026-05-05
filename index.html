@@ -933,13 +933,40 @@ function renderConsChart() {
   // Use retail dates as labels (all series are monthly)
   const labels = retail.map(d => d.date.toLocaleDateString('zh-TW', { year:'numeric', month:'short' }));
 
-  // Align pce & dpi to same year-month as retail
+  // Build unified date union from all 3 series, aligned by year-month
   const toYM = d => d.date.getFullYear() * 100 + d.date.getMonth();
-  const retailYMs = retail.map(toYM);
-  const pceMap  = Object.fromEntries(pce.map(d => [toYM(d), d.value]));
-  const dpiMap  = Object.fromEntries(dpi.map(d => [toYM(d), d.value]));
-  const pceAligned = retailYMs.map(ym => pceMap[ym] !== undefined ? pceMap[ym] : null);
-  const dpiAligned = retailYMs.map(ym => dpiMap[ym] !== undefined ? dpiMap[ym] : null);
+  const retailMap = Object.fromEntries(retail.map(d => [toYM(d), d.value]));
+  const pceMap    = Object.fromEntries(pce.map(d => [toYM(d), d.value]));
+  const dpiMap    = Object.fromEntries(dpi.map(d => [toYM(d), d.value]));
+
+  // Use retail dates as base; get all unique YMs from all series
+  const allYMs = [...new Set([
+    ...retail.map(toYM),
+    ...pce.map(toYM),
+    ...dpi.map(toYM),
+  ])].sort();
+
+  // Filter by range using retail dates as proxy
+  const rangeYMs = retail.map(toYM);
+  const minYM = rangeYMs[0];
+  const filteredYMs = allYMs.filter(ym => ym >= minYM);
+
+  // Rebuild labels from filteredYMs
+  const ymToDate = ym => {
+    const yr = Math.floor(ym / 100);
+    const mo = ym % 100;
+    return new Date(yr, mo, 1);
+  };
+
+  const allRetailVals = filteredYMs.map(ym => retailMap[ym] !== undefined ? retailMap[ym] : null);
+  const pceAligned    = filteredYMs.map(ym => pceMap[ym]    !== undefined ? pceMap[ym]    : null);
+  const dpiAligned    = filteredYMs.map(ym => dpiMap[ym]    !== undefined ? dpiMap[ym]    : null);
+
+  // Rebuild labels for unified axis
+  const unifiedLabels = filteredYMs.map(ym => ymToDate(ym).toLocaleDateString('zh-TW', { year:'numeric', month:'short' }));
+
+  console.log('PCE points:', pce.length, '| PCE aligned non-null:', pceAligned.filter(v=>v!==null).length);
+  console.log('DPI points:', dpi.length, '| DPI aligned non-null:', dpiAligned.filter(v=>v!==null).length);
 
   const canvas = document.getElementById('cons-chart');
   canvas.style.display = 'block';
@@ -950,11 +977,12 @@ function renderConsChart() {
   consChart = new Chart(ctx, {
     type: 'line',
     data: {
-      labels,
+      labels: unifiedLabels,
       datasets: [
         {
           label: '實質零售銷售',
-          data: retail.map(d => d.value),
+          data: allRetailVals,
+          spanGaps: false,
           borderColor: '#00c8e0',
           backgroundColor: 'rgba(0,200,224,0.08)',
           borderWidth: 1.8,
@@ -967,6 +995,7 @@ function renderConsChart() {
         {
           label: '實質個人消費支出',
           data: pceAligned,
+          spanGaps: true,
           borderColor: '#f0a500',
           backgroundColor: 'rgba(240,165,0,0.08)',
           borderWidth: 1.8,
@@ -979,6 +1008,7 @@ function renderConsChart() {
         {
           label: '實質可支配所得',
           data: dpiAligned,
+          spanGaps: true,
           borderColor: '#40c870',
           backgroundColor: 'rgba(64,200,112,0.08)',
           borderWidth: 1.8,
@@ -990,7 +1020,7 @@ function renderConsChart() {
         },
       ]
     },
-    plugins: [recessionPlugin(retail)],
+    plugins: [recessionPlugin(filteredYMs.map(ym => ({ date: ymToDate(ym) })))],
     options: {
       responsive: true,
       maintainAspectRatio: false,

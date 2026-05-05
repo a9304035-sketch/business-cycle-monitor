@@ -510,7 +510,7 @@
       <div>
         <div class="section-title-block">
           <h2>民間消費</h2>
-          <div class="series-id">FRED: RRSFS · PCE · DSPIC96 — 月增率 (MoM %)</div>
+          <div class="series-id">FRED: RSAFS · PCE · DSPIC96 — 月增率 (MoM %)</div>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -1049,7 +1049,7 @@ async function loadConsData(apiKey) {
 
   try {
     const [rawRetail, rawPce, rawDpi] = await Promise.all([
-      fetchConsSeries('RRSFS',   apiKey),
+      fetchConsSeries('RSAFS', apiKey),
       fetchConsSeries('PCE', apiKey),
       fetchConsSeries('DSPIC96', apiKey),
     ]);
@@ -1589,7 +1589,7 @@ function renderInvChart() {
       labels,
       datasets: [
         {
-          label: '實質民間固定投資（千億美元）',
+          label: '實質民間固定投資 QoQ（%）',
           data: prfiVals,
           borderColor: '#00c8e0',
           backgroundColor: 'rgba(0,200,224,0.08)',
@@ -1603,7 +1603,7 @@ function renderInvChart() {
           yAxisID: 'yPrfi',
         },
         {
-          label: '耐久財訂單—排除運輸（10億美元）',
+          label: '耐久財訂單 MoM（%）',
           data: durVals,
           borderColor: '#f0a500',
           backgroundColor: 'rgba(240,165,0,0.08)',

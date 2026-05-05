@@ -933,10 +933,13 @@ function renderConsChart() {
   // Use retail dates as labels (all series are monthly)
   const labels = retail.map(d => d.date.toLocaleDateString('zh-TW', { year:'numeric', month:'short' }));
 
-  // Align pce & dpi to same dates
-  const retailDates = retail.map(d => d.date.getTime());
-  const pceAligned  = retailDates.map(t => { const f = pce.find(d => d.date.getTime() === t); return f ? f.value : null; });
-  const dpiAligned  = retailDates.map(t => { const f = dpi.find(d => d.date.getTime() === t); return f ? f.value : null; });
+  // Align pce & dpi to same year-month as retail
+  const toYM = d => d.date.getFullYear() * 100 + d.date.getMonth();
+  const retailYMs = retail.map(toYM);
+  const pceMap  = Object.fromEntries(pce.map(d => [toYM(d), d.value]));
+  const dpiMap  = Object.fromEntries(dpi.map(d => [toYM(d), d.value]));
+  const pceAligned = retailYMs.map(ym => pceMap[ym] !== undefined ? pceMap[ym] : null);
+  const dpiAligned = retailYMs.map(ym => dpiMap[ym] !== undefined ? dpiMap[ym] : null);
 
   const canvas = document.getElementById('cons-chart');
   canvas.style.display = 'block';

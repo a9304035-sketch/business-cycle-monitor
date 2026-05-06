@@ -889,6 +889,83 @@
   </div>
 
 
+  <!-- ── 債務違約率 ── -->
+  <div style="height:32px"></div>
+
+  <div class="stats-row" id="debt-stats-row" style="display:none">
+    <div class="stat-card">
+      <div class="stat-label" style="color:#00c8e0">消費性貸款違約率</div>
+      <div class="stat-value" id="debt-cons-val">—</div>
+      <div class="stat-change" id="debt-cons-chg" style="color:var(--text-dim)">—</div>
+      <div class="stat-date" id="debt-cons-date">最新季數值</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color:#f0a500">企業貸款違約率</div>
+      <div class="stat-value" id="debt-biz-val">—</div>
+      <div class="stat-change" id="debt-biz-chg" style="color:var(--text-dim)">—</div>
+      <div class="stat-date" id="debt-biz-date">最新季數值</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">消費 4Q 均值</div>
+      <div class="stat-value" id="debt-cons-ma4">—</div>
+      <div class="stat-change" style="color:var(--text-dim)">4季移動平均</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">企業 4Q 均值</div>
+      <div class="stat-value" id="debt-biz-ma4">—</div>
+      <div class="stat-change" style="color:var(--text-dim)">4季移動平均</div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-toolbar">
+      <div>
+        <div class="section-title-block">
+          <h2>債務違約率</h2>
+          <div class="series-id">FRED: DRCLACBS · DRBLACBS — 季更 %</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="toolbar-label">區間</span>
+        <div class="range-group">
+          <button class="range-btn" data-debtrange="1"   onclick="setDebtRange('1',this)">1年</button>
+          <button class="range-btn" data-debtrange="3"   onclick="setDebtRange('3',this)">3年</button>
+          <button class="range-btn" data-debtrange="5"   onclick="setDebtRange('5',this)">5年</button>
+          <button class="range-btn active" data-debtrange="ALL" onclick="setDebtRange('ALL',this)">全部</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-wrapper">
+      <div id="debt-intro" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:380px;gap:14px;color:var(--text-dim)">
+        <div style="font-size:48px;opacity:0.4">⚠️</div>
+        <div style="font-family:var(--font-display);font-size:20px;letter-spacing:3px;color:var(--text-secondary)">等待數據載入</div>
+        <div style="font-family:var(--font-mono);font-size:11px;text-align:center;line-height:1.8">載入初領數據後<br/>債務違約數據將同步抓取</div>
+      </div>
+      <div id="debt-loading" class="overlay" style="display:none">
+        <div class="spinner"></div>
+        <div class="overlay-text">正在抓取違約率數據...</div>
+      </div>
+      <div id="debt-error" class="overlay" style="display:none">
+        <div class="error-icon">⚠️</div>
+        <div class="error-msg" id="debt-error-msg"></div>
+      </div>
+      <canvas id="debt-chart" style="display:none"></canvas>
+    </div>
+
+    <div class="chart-legend" id="debt-legend" style="display:none">
+      <div class="legend-item"><div style="background:#00c8e0;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>消費性貸款違約率（DRCLACBS）</span></div>
+      <div class="legend-item"><div style="background:#f0a500;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>企業貸款違約率（DRBLACBS）</span></div>
+      <div class="legend-item"><div class="legend-swatch recession"></div><span>NBER 景氣衰退期</span></div>
+    </div>
+
+    <div id="debt-note" style="display:none;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#4a5a6a;letter-spacing:0.5px">
+      * Y 軸：違約率（%）／ 數據來源：美聯儲 Federal Reserve，全商業銀行，季更季調
+    </div>
+    <div class="source-tag">SOURCE: FRED / ST. LOUIS FED</div>
+  </div>
+
+
 </main>
 
 <script>
@@ -944,7 +1021,9 @@ async function loadData() {
       .then(() => new Promise(r => setTimeout(r, 2000)))
       .then(() => loadGovtData(apiKey))
       .then(() => new Promise(r => setTimeout(r, 2000)))
-      .then(() => loadInvtData(apiKey));
+      .then(() => loadInvtData(apiKey))
+      .then(() => new Promise(r => setTimeout(r, 2000)))
+      .then(() => loadDebtData(apiKey));
 
   } catch (err) {
     showLoading(false);
@@ -2330,6 +2409,181 @@ function renderInvtChart() {
 document.getElementById('api-key-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') loadData();
 });
+
+// ── 債務違約率 ─────────────────────────────────────────────────
+let debtData  = { cons: [], biz: [] };
+let debtChart = null;
+let debtRange = 'ALL';
+
+function setDebtRange(r, btn) {
+  debtRange = r;
+  document.querySelectorAll('[data-debtrange]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (debtData.cons.length) renderDebtChart();
+}
+
+function applyDebtRange(data) {
+  if (debtRange === 'ALL') return data;
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - parseInt(debtRange));
+  return data.filter(d => d.date >= cutoff);
+}
+
+async function loadDebtData(apiKey) {
+  document.getElementById('debt-loading').style.display = 'flex';
+  document.getElementById('debt-intro').style.display   = 'none';
+  try {
+    const rawCons = await fetchConsSeries('DRCLACBS', apiKey);
+    await new Promise(r => setTimeout(r, 800));
+    const rawBiz  = await fetchConsSeries('DRBLACBS', apiKey);
+
+    debtData.cons = rawCons;
+    debtData.biz  = rawBiz;
+
+    updateDebtStats();
+    renderDebtChart();
+
+    document.getElementById('debt-stats-row').style.display = 'grid';
+    document.getElementById('debt-legend').style.display    = 'flex';
+    document.getElementById('debt-note').style.display      = 'block';
+    document.getElementById('debt-loading').style.display   = 'none';
+  } catch (err) {
+    document.getElementById('debt-loading').style.display  = 'none';
+    document.getElementById('debt-error-msg').textContent  = '違約率數據載入失敗：' + err.message;
+    document.getElementById('debt-error').style.display    = 'flex';
+  }
+}
+
+function updateDebtStats() {
+  const setCard = (arr, valId, chgId, dateId, ma4Id) => {
+    if (!arr || !arr.length) return;
+    const last  = arr[arr.length - 1];
+    const prev  = arr[arr.length - 2];
+    const v     = last.value;
+    const delta = prev ? v - prev.value : null;
+
+    const el = id => document.getElementById(id);
+    el(valId).textContent  = v.toFixed(2) + '%';
+    el(valId).className    = 'stat-value';
+    if (delta !== null) {
+      el(chgId).textContent = (delta >= 0 ? '▲ ' : '▼ ') + Math.abs(delta).toFixed(2) + '% vs 前季';
+      el(chgId).className   = 'stat-change ' + (delta >= 0 ? 'up' : 'down');
+    }
+    el(dateId).textContent = last.date.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long' });
+    if (ma4Id) {
+      const ma4 = arr.slice(-4).reduce((a, b) => a + b.value, 0) / Math.min(arr.length, 4);
+      el(ma4Id).textContent = ma4.toFixed(2) + '%';
+    }
+  };
+
+  setCard(debtData.cons, 'debt-cons-val', 'debt-cons-chg', 'debt-cons-date', 'debt-cons-ma4');
+  setCard(debtData.biz,  'debt-biz-val',  'debt-biz-chg',  'debt-biz-date',  'debt-biz-ma4');
+}
+
+function renderDebtChart() {
+  const consData = applyDebtRange(debtData.cons);
+  const bizData  = applyDebtRange(debtData.biz);
+
+  const toYM     = d => d.date.getFullYear() * 100 + d.date.getMonth();
+  const ymToDate = ym => new Date(Math.floor(ym / 100), ym % 100, 1);
+  const allYMs   = [...new Set([...consData.map(toYM), ...bizData.map(toYM)])].sort();
+
+  const consMap  = Object.fromEntries(consData.map(d => [toYM(d), d.value]));
+  const bizMap   = Object.fromEntries(bizData.map(d => [toYM(d), d.value]));
+
+  const fmtLabel = ym => {
+    const d = ymToDate(ym);
+    const q = Math.ceil((d.getMonth() + 1) / 3);
+    return d.getFullYear() + ' Q' + q;
+  };
+
+  const labels   = allYMs.map(fmtLabel);
+  const consVals = allYMs.map(ym => consMap[ym] !== undefined ? consMap[ym] : null);
+  const bizVals  = allYMs.map(ym => bizMap[ym]  !== undefined ? bizMap[ym]  : null);
+  const processed= allYMs.map(ym => ({ date: ymToDate(ym) }));
+
+  const canvas = document.getElementById('debt-chart');
+  canvas.style.display = 'block';
+  if (debtChart) { debtChart.destroy(); debtChart = null; }
+
+  debtChart = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '消費性貸款違約率',
+          data: consVals,
+          borderColor: '#00c8e0',
+          backgroundColor: 'rgba(0,200,224,0.08)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: '#00c8e0',
+          tension: 0.3,
+          fill: false,
+          spanGaps: false,
+        },
+        {
+          label: '企業貸款違約率',
+          data: bizVals,
+          borderColor: '#f0a500',
+          backgroundColor: 'rgba(240,165,0,0.08)',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: '#f0a500',
+          tension: 0.3,
+          fill: false,
+          spanGaps: false,
+        },
+      ]
+    },
+    plugins: [recessionPlugin(processed)],
+    options: {
+      responsive:          true,
+      maintainAspectRatio: false,
+      animation:           { duration: 600, easing: 'easeOutQuart' },
+      interaction:         { mode: 'index', intersect: false },
+      scales: {
+        x: {
+          grid:   { color: 'rgba(30,45,61,0.8)', lineWidth: 1 },
+          border: { color: '#1e2d3d' },
+          ticks:  { color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 },
+        },
+        y: {
+          grid:   { color: 'rgba(30,45,61,0.8)', lineWidth: 1 },
+          border: { color: '#1e2d3d', dash: [4, 4] },
+          ticks:  { color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v.toFixed(1) + '%' },
+          title:  { display: true, text: '違約率（%）', color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0d1318',
+          borderColor: '#2a4060', borderWidth: 1,
+          titleColor: '#8090a0', bodyColor: '#8090a0',
+          padding: 12,
+          titleFont: { family: "'JetBrains Mono', monospace", size: 11 },
+          bodyFont:  { family: "'JetBrains Mono', monospace", size: 11 },
+          callbacks: {
+            title: items => '📅 ' + items[0].label,
+            label: item => {
+              const v = item.parsed.y;
+              if (v === null || v === undefined) return null;
+              const name = item.datasetIndex === 0 ? '消費性違約率' : '企業違約率';
+              return name + '：' + v.toFixed(2) + '%';
+            },
+            labelColor: item => ({ borderColor: item.dataset.borderColor, backgroundColor: item.dataset.borderColor }),
+          },
+        },
+      },
+    },
+  });
+}
+
+const savedKey = localStorage.getItem('fred_api_key');
 if (savedKey) {
   document.getElementById('api-key-input').value = savedKey;
   loadData();

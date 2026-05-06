@@ -1181,7 +1181,7 @@
       <div class="chart-toolbar">
         <div>
           <div class="section-title-block">
-            <h2><button class="star-btn" id="star-pce" onclick="toggleStar('pce',this)" title="標記注意">⭐</button>個人</h2>
+            <h2><button class="star-btn" id="star-pce" onclick="toggleStar('pce',this)" title="標記注意">⭐</button>個人消費支出年增率</h2>
             <div class="series-id">FRED: PCE — 月更 YoY %</div>
           </div>
         </div>
@@ -1229,12 +1229,44 @@
 </div>
 
 <script>
-// ── 頁籤切換 ──────────────────────────────────────────────────
+// ── 頁籤切換 + 懶載入 ─────────────────────────────────────────
+const tabLoaded = { recovery: false, growth: false, boom: false, recession: false };
+
+// 各頁籤要載入的函式（按順序）
+const TAB_LOADERS = {
+  boom: apiKey => loadConsData(apiKey)
+    .then(() => new Promise(r => setTimeout(r, 2000)))
+    .then(() => loadSentData(apiKey))
+    .then(() => new Promise(r => setTimeout(r, 2000)))
+    .then(() => loadInvData(apiKey))
+    .then(() => new Promise(r => setTimeout(r, 2000)))
+    .then(() => loadGovtData(apiKey))
+    .then(() => new Promise(r => setTimeout(r, 2000)))
+    .then(() => loadInvtData(apiKey))
+    .then(() => new Promise(r => setTimeout(r, 2000)))
+    .then(() => loadDebtData(apiKey)),
+
+  recession: apiKey => loadPceData(apiKey),
+
+  recovery: () => Promise.resolve(),   // 尚無圖表
+  growth:   () => Promise.resolve(),   // 尚無圖表
+};
+
+function loadTabData(tabId) {
+  if (tabLoaded[tabId]) return;
+  const apiKey = window._loadedApiKey;
+  if (!apiKey) return;   // 尚未輸入 Key
+  tabLoaded[tabId] = true;
+  const loader = TAB_LOADERS[tabId];
+  if (loader) loader(apiKey).catch(err => console.error('Tab load error:', tabId, err));
+}
+
 function switchTab(tabId, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + tabId).classList.add('active');
+  loadTabData(tabId);   // 首次切換才觸發載入
 }
 
 // ── 星星標記 ──────────────────────────────────────────────────
@@ -1305,20 +1337,12 @@ async function loadData() {
     document.getElementById('chart-legend').style.display = 'flex';
     document.getElementById('chart-note').style.display   = 'block';
     showLoading(false);
-    // 循序載入，間隔 2 秒避免 Vercel 併發限制
-    loadConsData(apiKey)
-      .then(() => new Promise(r => setTimeout(r, 2000)))
-      .then(() => loadSentData(apiKey))
-      .then(() => new Promise(r => setTimeout(r, 2000)))
-      .then(() => loadInvData(apiKey))
-      .then(() => new Promise(r => setTimeout(r, 2000)))
-      .then(() => loadGovtData(apiKey))
-      .then(() => new Promise(r => setTimeout(r, 2000)))
-      .then(() => loadInvtData(apiKey))
-      .then(() => new Promise(r => setTimeout(r, 2000)))
-      .then(() => loadDebtData(apiKey))
-      .then(() => new Promise(r => setTimeout(r, 2000)))
-      .then(() => loadPceData(apiKey));
+
+    // 儲存 API Key 供懶載入使用
+    window._loadedApiKey = apiKey;
+
+    // 榮景期：自動循序載入
+    loadTabData('boom');
 
   } catch (err) {
     showLoading(false);
@@ -2898,14 +2922,22 @@ function applyPceRange(data) {
 }
 
 function calcPceYoY(data) {
-  return data.slice(12).map((d, i) => {
-    const prev = data[i];
-    if (!prev || prev.value === 0) return null;
-    return {
-      date : d.date,
-      value: parseFloat(((d.value - prev.value) / Math.abs(prev.value) * 100).toFixed(3))
-    };
-  }).filter(Boolean);
+  // 以日期比對取「同月去年」，避免資料缺口造成偏移
+  const result = [];
+  for (let i = 0; i < data.length; i++) {
+    const cur  = data[i];
+    const prev = data.find(o =>
+      o.date.getFullYear() === cur.date.getFullYear() - 1 &&
+      o.date.getMonth()    === cur.date.getMonth()
+    );
+    if (prev && prev.value !== 0) {
+      result.push({
+        date : cur.date,
+        value: parseFloat(((cur.value - prev.value) / Math.abs(prev.value) * 100).toFixed(3))
+      });
+    }
+  }
+  return result;
 }
 
 async function loadPceData(apiKey) {

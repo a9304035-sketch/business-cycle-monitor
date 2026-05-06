@@ -755,7 +755,7 @@
       <div>
         <div class="section-title-block">
           <h2>政府收入與支出</h2>
-          <div class="series-id">FRED: SLEXPND · FGEXPND · SLREVENU · FGRECPT — 季更 YoY %</div>
+          <div class="series-id">FRED: SLEXPND · FGEXPND · SLREV · FGRECPT — 季更 YoY %</div>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -1765,7 +1765,7 @@ function renderInvChart() {
 const GOVT_SERIES = {
   slExp:  { id: 'SLEXPND',  label: '州與地方政府支出', color: '#f0a500', side: 'exp' },
   fedExp: { id: 'FGEXPND',  label: '聯邦政府支出',     color: '#e05050', side: 'exp' },
-  slRev:  { id: 'SLREVENU', label: '州與地方政府收入', color: '#40c870', side: 'rev' },
+  slRev:  { id: 'SLREV',    label: '州與地方政府收入', color: '#40c870', side: 'rev' },
   fedRev: { id: 'FGRECPT',  label: '聯邦政府收入',     color: '#00c8e0', side: 'rev' },
 };
 
@@ -1797,20 +1797,24 @@ async function loadGovtData(apiKey) {
   document.getElementById('govt-loading').style.display = 'flex';
   document.getElementById('govt-intro').style.display   = 'none';
   try {
-    // Fetch the 4 series sequentially to avoid rate-limit
-    const rawSlExp  = await fetchConsSeries('SLEXPND',  apiKey);
-    await new Promise(r => setTimeout(r, 800));
-    const rawFedExp = await fetchConsSeries('FGEXPND',  apiKey);
-    await new Promise(r => setTimeout(r, 800));
-    const rawSlRev  = await fetchConsSeries('SLREVENU', apiKey);
-    await new Promise(r => setTimeout(r, 800));
-    const rawFedRev = await fetchConsSeries('FGRECPT',  apiKey);
+    // Fetch sequentially with delay to avoid rate-limit; tolerate individual failures
+    const results = {};
+    for (const [key, s] of Object.entries(GOVT_SERIES)) {
+      try {
+        const raw = await fetchConsSeries(s.id, apiKey);
+        results[key] = calcGovtYoY(raw);
+      } catch (e) {
+        console.warn('政府財政 series 載入失敗：', s.id, e.message);
+        results[key] = [];
+      }
+      await new Promise(r => setTimeout(r, 600));
+    }
 
-    govtData.slExp  = calcGovtYoY(rawSlExp);
-    govtData.fedExp = calcGovtYoY(rawFedExp);
-    govtData.slRev  = calcGovtYoY(rawSlRev);
-    govtData.fedRev = calcGovtYoY(rawFedRev);
+    // Check at least one series loaded successfully
+    const anyLoaded = Object.values(results).some(arr => arr.length > 0);
+    if (!anyLoaded) throw new Error('所有 series 均無法取得，請確認 API Key');
 
+    govtData = results;
     updateGovtStats();
     renderGovtChart();
 

@@ -1620,6 +1620,29 @@ async function fetchConsSeries(seriesId, apiKey, retries = 3) {
   }
 }
 
+// 直接呼叫 FRED API（繞過 Vercel proxy，用於 proxy 不支援的 series）
+async function fetchFredDirect(seriesId, apiKey, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const url = `https://api.stlouisfed.org/fred/series/observations`
+        + `?series_id=${seriesId}`
+        + `&api_key=${encodeURIComponent(apiKey)}`
+        + `&file_type=json`
+        + `&observation_start=1980-01-01`;
+      const res  = await fetch(url);
+      const json = await res.json();
+      if (!json.observations) throw new Error(`無法取得 ${seriesId} 數據`);
+      return json.observations
+        .filter(o => o.value !== '.')
+        .map(o => ({ date: new Date(o.date), value: parseFloat(o.value) }))
+        .sort((a, b) => a.date - b.date);
+    } catch (err) {
+      if (i === retries - 1) throw err;
+      await new Promise(r => setTimeout(r, 1500 * (i + 1)));
+    }
+  }
+}
+
 async function loadConsData(apiKey) {
   document.getElementById('cons-loading').style.display = 'flex';
   document.getElementById('cons-intro').style.display   = 'none';
@@ -2295,24 +2318,13 @@ function expandAnnualToQuarterly(data) {
   return quarterly.sort((a, b) => a.date - b.date);
 }
 
-// 專用 fetch：先嘗試帶 frequency=q，失敗則 fallback 到無參數版本
-async function fetchGovtSeries(seriesId, apiKey, retries = 3) {
-  for (let attempt = 0; attempt < retries; attempt++) {
-    try {
-      const url  = `/api/fred?series_id=${seriesId}&api_key=${encodeURIComponent(apiKey)}`;
-      const res  = await fetch(url);
-      const json = await res.json();
-      if (!json.observations) throw new Error(`無法取得 ${seriesId} 數據`);
-      const raw = json.observations
-        .filter(o => o.value !== '.')
-        .map(o => ({ date: new Date(o.date), value: parseFloat(o.value) }))
-        .sort((a, b) => a.date - b.date);
-      return expandAnnualToQuarterly(raw);   // 年度→季度展開
-    } catch (err) {
-      if (attempt === retries - 1) throw err;
-      await new Promise(r => setTimeout(r, 1200 * (attempt + 1)));
-    }
-  }
+// 政府財政 fetch：proxy 支援的走 proxy，不支援的直接呼叫 FRED
+async function fetchGovtSeries(seriesId, apiKey) {
+  // SLREV 等 proxy 不支援的 series，直接走 FRED API
+  const DIRECT_SERIES = ['SLREV'];
+  const fetcher = DIRECT_SERIES.includes(seriesId) ? fetchFredDirect : fetchConsSeries;
+  const raw = await fetcher(seriesId, apiKey);
+  return expandAnnualToQuarterly(raw);
 }
 
 async function loadGovtData(apiKey) {
@@ -2944,7 +2956,7 @@ async function loadPceData(apiKey) {
   document.getElementById('pce-loading').style.display = 'flex';
   document.getElementById('pce-intro').style.display   = 'none';
   try {
-    const raw = await fetchConsSeries('DPCERX1M086SBEA', apiKey);
+    const raw = await fetchFredDirect('DPCERX1M086SBEA', apiKey);
     pceData   = calcPceYoY(raw);
 
     updatePceStats();

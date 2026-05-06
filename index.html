@@ -437,6 +437,42 @@
       line-height: 2;
     }
 
+    /* ── 星星標記 ─────────────────────────────────────────── */
+    .section-title-block h2 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .star-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      padding: 0 2px;
+      color: var(--text-dim);
+      transition: transform 0.15s, color 0.15s;
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .star-btn:hover { transform: scale(1.25); color: var(--amber); }
+
+    .star-btn.lit {
+      color: var(--amber);
+      text-shadow: 0 0 8px var(--amber-glow), 0 0 16px rgba(240,165,0,0.4);
+      animation: starPop 0.25s ease;
+    }
+
+    .star-btn:not(.lit) { filter: grayscale(1) opacity(0.35); }
+
+    @keyframes starPop {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.4); }
+      100% { transform: scale(1); }
+    }
+
     @media (max-width: 640px) {
       .topbar { padding: 0 14px; }
       .main { padding: 16px 14px; }
@@ -553,7 +589,7 @@
     <div class="chart-toolbar">
       <div>
         <div class="section-title-block">
-          <h2>初領失業救濟金人數</h2>
+          <h2>初領失業救濟金人數<button class="star-btn" id="star-icsa" onclick="toggleStar('icsa',this)" title="標記注意">⭐</button></h2>
           <div class="series-id">FRED: ICSA — Initial Jobless Claims (SA)</div>
         </div>
       </div>
@@ -652,7 +688,7 @@
     <div class="chart-toolbar">
       <div>
         <div class="section-title-block">
-          <h2>民間消費</h2>
+          <h2>民間消費<button class="star-btn" id="star-cons" onclick="toggleStar('cons',this)" title="標記注意">⭐</button></h2>
           <div class="series-id">FRED: RSAFS · PCE · DSPIC96 — 月增率 (MoM %)</div>
         </div>
       </div>
@@ -728,7 +764,7 @@
     <div class="chart-toolbar">
       <div>
         <div class="section-title-block">
-          <h2>消費者信心指數</h2>
+          <h2>消費者信心指數<button class="star-btn" id="star-sent" onclick="toggleStar('sent',this)" title="標記注意">⭐</button></h2>
           <div class="series-id">FRED: UMCSENT — 指數點位</div>
         </div>
       </div>
@@ -808,7 +844,7 @@
     <div class="chart-toolbar">
       <div>
         <div class="section-title-block">
-          <h2>民間投資</h2>
+          <h2>民間投資<button class="star-btn" id="star-inv" onclick="toggleStar('inv',this)" title="標記注意">⭐</button></h2>
           <div class="series-id">FRED: FPIC1（季）· ADXTNO（月，排除運輸）— QoQ % / MoM %</div>
         </div>
       </div>
@@ -897,7 +933,7 @@
     <div class="chart-toolbar">
       <div>
         <div class="section-title-block">
-          <h2>政府收入與支出</h2>
+          <h2>政府收入與支出<button class="star-btn" id="star-govt" onclick="toggleStar('govt',this)" title="標記注意">⭐</button></h2>
           <div class="series-id">FRED: SLEXPND · FGEXPND · SLREV · FGRECPT — 季更 YoY %</div>
         </div>
       </div>
@@ -979,7 +1015,7 @@
     <div class="chart-toolbar">
       <div>
         <div class="section-title-block">
-          <h2>庫存增減</h2>
+          <h2>庫存增減<button class="star-btn" id="star-invt" onclick="toggleStar('invt',this)" title="標記注意">⭐</button></h2>
           <div class="series-id">FRED: BUSINV（月）· ISRATIO（月）— YoY % / 比值</div>
         </div>
       </div>
@@ -1064,7 +1100,7 @@
     <div class="chart-toolbar">
       <div>
         <div class="section-title-block">
-          <h2>債務違約率</h2>
+          <h2>債務違約率<button class="star-btn" id="star-debt" onclick="toggleStar('debt',this)" title="標記注意">⭐</button></h2>
           <div class="series-id">FRED: DRCLACBS · DRBLACBS — 季更 %</div>
         </div>
       </div>
@@ -1131,6 +1167,31 @@ function switchTab(tabId, btn) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + tabId).classList.add('active');
 }
+
+// ── 星星標記 ──────────────────────────────────────────────────
+const STAR_KEY = 'chart_stars';
+
+function getStars() {
+  try { return JSON.parse(localStorage.getItem(STAR_KEY) || '{}'); } catch { return {}; }
+}
+
+function toggleStar(id, btn) {
+  const stars = getStars();
+  stars[id] = !stars[id];
+  localStorage.setItem(STAR_KEY, JSON.stringify(stars));
+  btn.classList.toggle('lit', stars[id]);
+}
+
+function initStars() {
+  const stars = getStars();
+  document.querySelectorAll('.star-btn').forEach(btn => {
+    const id = btn.id.replace('star-', '');
+    btn.classList.toggle('lit', !!stars[id]);
+  });
+}
+
+// 頁面載入後初始化星星狀態
+document.addEventListener('DOMContentLoaded', initStars);
 
 const RECESSIONS = [
   { start: '2001-03-01', end: '2001-11-30' },

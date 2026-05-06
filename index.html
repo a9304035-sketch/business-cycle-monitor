@@ -720,6 +720,90 @@
   </div>
 
 
+  <!-- ── 政府收入與支出 ── -->
+  <div style="height:32px"></div>
+
+  <div class="stats-row" id="govt-stats-row" style="display:none">
+    <div class="stat-card">
+      <div class="stat-label" style="color:#f0a500">州與地方政府支出 YoY</div>
+      <div class="stat-value" id="govt-sl-exp-val">—</div>
+      <div class="stat-change" id="govt-sl-exp-chg" style="color:var(--text-dim)">—</div>
+      <div class="stat-date">最新季年增率</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color:#e05050">聯邦政府支出 YoY</div>
+      <div class="stat-value" id="govt-fed-exp-val">—</div>
+      <div class="stat-change" id="govt-fed-exp-chg" style="color:var(--text-dim)">—</div>
+      <div class="stat-date">最新季年增率</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color:#40c870">州與地方政府收入 YoY</div>
+      <div class="stat-value" id="govt-sl-rev-val">—</div>
+      <div class="stat-change" id="govt-sl-rev-chg" style="color:var(--text-dim)">—</div>
+      <div class="stat-date">最新季年增率</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color:#00c8e0">聯邦政府收入 YoY</div>
+      <div class="stat-value" id="govt-fed-rev-val">—</div>
+      <div class="stat-change" id="govt-fed-rev-chg" style="color:var(--text-dim)">—</div>
+      <div class="stat-date">最新季年增率</div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-toolbar">
+      <div>
+        <div class="section-title-block">
+          <h2>政府收入與支出</h2>
+          <div class="series-id">FRED: SLEXPND · FGEXPND · SLREVENU · FGRECPT — 季更 YoY %</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="toolbar-label">顯示</span>
+          <div class="toggle-group">
+            <button class="toggle-btn active" data-gmode="exp" onclick="setGovtMode('exp',this)">📤 支出</button>
+            <button class="toggle-btn"        data-gmode="rev" onclick="setGovtMode('rev',this)">📥 收入</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="toolbar-label">區間</span>
+          <div class="range-group">
+            <button class="range-btn" data-grange="1"   onclick="setGovtRange('1',this)">1年</button>
+            <button class="range-btn" data-grange="3"   onclick="setGovtRange('3',this)">3年</button>
+            <button class="range-btn" data-grange="5"   onclick="setGovtRange('5',this)">5年</button>
+            <button class="range-btn active" data-grange="ALL" onclick="setGovtRange('ALL',this)">全部</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-wrapper">
+      <div id="govt-intro" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:380px;gap:14px;color:var(--text-dim)">
+        <div style="font-size:48px;opacity:0.4">🏛️</div>
+        <div style="font-family:var(--font-display);font-size:20px;letter-spacing:3px;color:var(--text-secondary)">等待數據載入</div>
+        <div style="font-family:var(--font-mono);font-size:11px;text-align:center;line-height:1.8">載入初領數據後<br/>政府財政數據將同步抓取</div>
+      </div>
+      <div id="govt-loading" class="overlay" style="display:none">
+        <div class="spinner"></div>
+        <div class="overlay-text">正在抓取政府財政數據...</div>
+      </div>
+      <div id="govt-error" class="overlay" style="display:none">
+        <div class="error-icon">⚠️</div>
+        <div class="error-msg" id="govt-error-msg"></div>
+      </div>
+      <canvas id="govt-chart" style="display:none"></canvas>
+    </div>
+
+    <div class="chart-legend" id="govt-legend" style="display:none"></div>
+
+    <div id="govt-note" style="display:none;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#4a5a6a;letter-spacing:0.5px">
+      * Y 軸：年增率（YoY %）／ 數據來源：美國商務部 BEA，FRED 季節性調整年率（SAAR）
+    </div>
+    <div class="source-tag">SOURCE: FRED / ST. LOUIS FED</div>
+  </div>
+
+
 </main>
 
 <script>
@@ -771,7 +855,9 @@ async function loadData() {
       .then(() => new Promise(r => setTimeout(r, 2000)))
       .then(() => loadSentData(apiKey))
       .then(() => new Promise(r => setTimeout(r, 2000)))
-      .then(() => loadInvData(apiKey));
+      .then(() => loadInvData(apiKey))
+      .then(() => new Promise(r => setTimeout(r, 2000)))
+      .then(() => loadGovtData(apiKey));
 
   } catch (err) {
     showLoading(false);
@@ -1673,6 +1759,216 @@ function renderInvChart() {
       }
     }
   });
+}
+
+// ── 政府收入與支出 ─────────────────────────────────────────────
+const GOVT_SERIES = {
+  slExp:  { id: 'SLEXPND',  label: '州與地方政府支出', color: '#f0a500', side: 'exp' },
+  fedExp: { id: 'FGEXPND',  label: '聯邦政府支出',     color: '#e05050', side: 'exp' },
+  slRev:  { id: 'SLREVENU', label: '州與地方政府收入', color: '#40c870', side: 'rev' },
+  fedRev: { id: 'FGRECPT',  label: '聯邦政府收入',     color: '#00c8e0', side: 'rev' },
+};
+
+let govtData  = {};
+let govtChart = null;
+let govtMode  = 'exp';   // 'exp' | 'rev'
+let govtRange = 'ALL';
+
+// 計算 YoY%：以同月去年同季為基準
+function calcGovtYoY(obs) {
+  const result = [];
+  for (let i = 0; i < obs.length; i++) {
+    const cur  = obs[i];
+    const prev = obs.find(o =>
+      o.date.getFullYear() === cur.date.getFullYear() - 1 &&
+      o.date.getMonth()    === cur.date.getMonth()
+    );
+    if (prev && prev.value !== 0) {
+      result.push({
+        date : cur.date,
+        value: parseFloat(((cur.value - prev.value) / Math.abs(prev.value) * 100).toFixed(3)),
+      });
+    }
+  }
+  return result;
+}
+
+async function loadGovtData(apiKey) {
+  document.getElementById('govt-loading').style.display = 'flex';
+  document.getElementById('govt-intro').style.display   = 'none';
+  try {
+    // Fetch the 4 series sequentially to avoid rate-limit
+    const rawSlExp  = await fetchConsSeries('SLEXPND',  apiKey);
+    await new Promise(r => setTimeout(r, 800));
+    const rawFedExp = await fetchConsSeries('FGEXPND',  apiKey);
+    await new Promise(r => setTimeout(r, 800));
+    const rawSlRev  = await fetchConsSeries('SLREVENU', apiKey);
+    await new Promise(r => setTimeout(r, 800));
+    const rawFedRev = await fetchConsSeries('FGRECPT',  apiKey);
+
+    govtData.slExp  = calcGovtYoY(rawSlExp);
+    govtData.fedExp = calcGovtYoY(rawFedExp);
+    govtData.slRev  = calcGovtYoY(rawSlRev);
+    govtData.fedRev = calcGovtYoY(rawFedRev);
+
+    updateGovtStats();
+    renderGovtChart();
+
+    document.getElementById('govt-stats-row').style.display = 'grid';
+    document.getElementById('govt-legend').style.display    = 'flex';
+    document.getElementById('govt-note').style.display      = 'block';
+    document.getElementById('govt-loading').style.display   = 'none';
+  } catch (err) {
+    document.getElementById('govt-loading').style.display  = 'none';
+    document.getElementById('govt-error-msg').textContent  = '政府財政數據載入失敗：' + err.message;
+    document.getElementById('govt-error').style.display    = 'flex';
+  }
+}
+
+function updateGovtStats() {
+  const entries = [
+    { key: 'slExp',  valId: 'govt-sl-exp-val',  chgId: 'govt-sl-exp-chg'  },
+    { key: 'fedExp', valId: 'govt-fed-exp-val', chgId: 'govt-fed-exp-chg' },
+    { key: 'slRev',  valId: 'govt-sl-rev-val',  chgId: 'govt-sl-rev-chg'  },
+    { key: 'fedRev', valId: 'govt-fed-rev-val', chgId: 'govt-fed-rev-chg' },
+  ];
+  entries.forEach(e => {
+    const arr  = govtData[e.key];
+    if (!arr || !arr.length) return;
+    const last  = arr[arr.length - 1];
+    const prev  = arr[arr.length - 2];
+    const v     = last.value;
+    const delta = prev ? v - prev.value : null;
+
+    const valEl = document.getElementById(e.valId);
+    valEl.textContent = (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+    valEl.className   = 'stat-value ' + (v >= 0 ? 'down' : 'up');
+
+    if (delta !== null) {
+      const chgEl = document.getElementById(e.chgId);
+      chgEl.textContent = (delta >= 0 ? '▲ ' : '▼ ') + Math.abs(delta).toFixed(1) + 'pp vs 前季';
+      chgEl.className   = 'stat-change ' + (delta >= 0 ? 'down' : 'up');
+    }
+  });
+}
+
+function applyGovtRange(data) {
+  if (govtRange === 'ALL') return data;
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - parseInt(govtRange));
+  return data.filter(d => d.date >= cutoff);
+}
+
+function setGovtMode(mode, btn) {
+  govtMode = mode;
+  document.querySelectorAll('[data-gmode]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (Object.keys(govtData).length) renderGovtChart();
+}
+
+function setGovtRange(r, btn) {
+  govtRange = r;
+  document.querySelectorAll('[data-grange]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (Object.keys(govtData).length) renderGovtChart();
+}
+
+function fmtQLabel(date) {
+  const q = Math.ceil((date.getMonth() + 1) / 3);
+  return date.getFullYear() + ' Q' + q;
+}
+
+function renderGovtChart() {
+  const visEntries = Object.entries(GOVT_SERIES).filter(([, s]) => s.side === govtMode);
+
+  // Build unified quarterly timeline across visible series
+  const toYM = d => d.date.getFullYear() * 100 + d.date.getMonth();
+  const allYMSet = new Set();
+  visEntries.forEach(([k]) => {
+    applyGovtRange(govtData[k] || []).forEach(d => allYMSet.add(toYM(d)));
+  });
+  const allYMs = [...allYMSet].sort();
+
+  const ymToDate = ym => new Date(Math.floor(ym / 100), ym % 100, 1);
+
+  const datasets = visEntries.map(([k, s]) => {
+    const ranged = applyGovtRange(govtData[k] || []);
+    const map    = Object.fromEntries(ranged.map(d => [toYM(d), d.value]));
+    return {
+      label: s.label,
+      data:  allYMs.map(ym => map[ym] !== undefined ? map[ym] : null),
+      borderColor:            s.color,
+      backgroundColor:        s.color + '18',
+      borderWidth:            2,
+      pointRadius:            0,
+      pointHoverRadius:       5,
+      pointHoverBackgroundColor: s.color,
+      tension:                0.3,
+      fill:                   false,
+      spanGaps:               false,
+    };
+  });
+
+  const processed = allYMs.map(ym => ({ date: ymToDate(ym) }));
+  const labels    = allYMs.map(ym => fmtQLabel(ymToDate(ym)));
+
+  const canvas = document.getElementById('govt-chart');
+  canvas.style.display = 'block';
+  if (govtChart) { govtChart.destroy(); govtChart = null; }
+
+  govtChart = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: { labels, datasets },
+    plugins: [recessionPlugin(processed)],
+    options: {
+      responsive:          true,
+      maintainAspectRatio: false,
+      animation:           { duration: 600, easing: 'easeOutQuart' },
+      interaction:         { mode: 'index', intersect: false },
+      scales: {
+        x: {
+          grid:   { color: 'rgba(30,45,61,0.8)', lineWidth: 1 },
+          border: { color: '#1e2d3d' },
+          ticks:  { color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 },
+        },
+        y: {
+          grid:   { color: 'rgba(30,45,61,0.8)', lineWidth: 1 },
+          border: { color: '#1e2d3d', dash: [4, 4] },
+          ticks:  { color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%' },
+          title:  { display: true, text: '年增率（YoY %）', color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0d1318',
+          borderColor: '#2a4060', borderWidth: 1,
+          titleColor: '#8090a0', bodyColor: '#8090a0',
+          padding: 12,
+          titleFont: { family: "'JetBrains Mono', monospace", size: 11 },
+          bodyFont:  { family: "'JetBrains Mono', monospace", size: 11 },
+          callbacks: {
+            title: items => '📅 ' + items[0].label,
+            label: item => {
+              const v = item.parsed.y;
+              if (v === null) return null;
+              return item.dataset.label + '：' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+            },
+            labelColor: item => ({ borderColor: item.dataset.borderColor, backgroundColor: item.dataset.borderColor }),
+          },
+        },
+      },
+    },
+  });
+
+  // Rebuild legend HTML
+  const leg = document.getElementById('govt-legend');
+  leg.innerHTML = datasets.map(d => `
+    <div class="legend-item">
+      <div style="background:${d.borderColor};height:3px;width:20px;border-radius:2px;display:inline-block"></div>
+      <span>${d.label}</span>
+    </div>`).join('') +
+    `<div class="legend-item"><div class="legend-swatch recession"></div><span>NBER 景氣衰退期</span></div>`;
 }
 
 document.getElementById('api-key-input').addEventListener('keydown', e => {

@@ -1793,15 +1793,33 @@ function calcGovtYoY(obs) {
   return result;
 }
 
+// 專用 fetch：強制季更（frequency=q），避免 SLREV 預設回傳年度資料
+async function fetchGovtSeries(seriesId, apiKey, retries = 3) {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const url  = `/api/fred?series_id=${seriesId}&api_key=${encodeURIComponent(apiKey)}&frequency=q&observation_start=1990-01-01`;
+      const res  = await fetch(url);
+      const json = await res.json();
+      if (!json.observations) throw new Error(`無法取得 ${seriesId} 數據`);
+      return json.observations
+        .filter(o => o.value !== '.')
+        .map(o => ({ date: new Date(o.date), value: parseFloat(o.value) }))
+        .sort((a, b) => a.date - b.date);
+    } catch (err) {
+      if (attempt === retries - 1) throw err;
+      await new Promise(r => setTimeout(r, 1200 * (attempt + 1)));
+    }
+  }
+}
+
 async function loadGovtData(apiKey) {
   document.getElementById('govt-loading').style.display = 'flex';
   document.getElementById('govt-intro').style.display   = 'none';
   try {
-    // Fetch sequentially with delay to avoid rate-limit; tolerate individual failures
     const results = {};
     for (const [key, s] of Object.entries(GOVT_SERIES)) {
       try {
-        const raw = await fetchConsSeries(s.id, apiKey);
+        const raw = await fetchGovtSeries(s.id, apiKey);
         results[key] = calcGovtYoY(raw);
       } catch (e) {
         console.warn('政府財政 series 載入失敗：', s.id, e.message);
@@ -1810,7 +1828,6 @@ async function loadGovtData(apiKey) {
       await new Promise(r => setTimeout(r, 600));
     }
 
-    // Check at least one series loaded successfully
     const anyLoaded = Object.values(results).some(arr => arr.length > 0);
     if (!anyLoaded) throw new Error('所有 series 均無法取得，請確認 API Key');
 
@@ -1909,7 +1926,7 @@ function renderGovtChart() {
       pointHoverBackgroundColor: s.color,
       tension:                0.3,
       fill:                   false,
-      spanGaps:               false,
+      spanGaps:               true,
     };
   });
 

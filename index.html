@@ -728,25 +728,25 @@
       <div class="stat-label" style="color:#f0a500">州與地方政府支出 YoY</div>
       <div class="stat-value" id="govt-sl-exp-val">—</div>
       <div class="stat-change" id="govt-sl-exp-chg" style="color:var(--text-dim)">—</div>
-      <div class="stat-date">最新季年增率</div>
+      <div class="stat-date" id="govt-sl-exp-date">最新季年增率</div>
     </div>
     <div class="stat-card">
       <div class="stat-label" style="color:#e05050">聯邦政府支出 YoY</div>
       <div class="stat-value" id="govt-fed-exp-val">—</div>
       <div class="stat-change" id="govt-fed-exp-chg" style="color:var(--text-dim)">—</div>
-      <div class="stat-date">最新季年增率</div>
+      <div class="stat-date" id="govt-fed-exp-date">最新季年增率</div>
     </div>
     <div class="stat-card">
       <div class="stat-label" style="color:#40c870">州與地方政府收入 YoY</div>
       <div class="stat-value" id="govt-sl-rev-val">—</div>
       <div class="stat-change" id="govt-sl-rev-chg" style="color:var(--text-dim)">—</div>
-      <div class="stat-date">最新季年增率</div>
+      <div class="stat-date" id="govt-sl-rev-date">最新季年增率</div>
     </div>
     <div class="stat-card">
       <div class="stat-label" style="color:#00c8e0">聯邦政府收入 YoY</div>
       <div class="stat-value" id="govt-fed-rev-val">—</div>
       <div class="stat-change" id="govt-fed-rev-chg" style="color:var(--text-dim)">—</div>
-      <div class="stat-date">最新季年增率</div>
+      <div class="stat-date" id="govt-fed-rev-date">最新季年增率</div>
     </div>
   </div>
 
@@ -1793,18 +1793,36 @@ function calcGovtYoY(obs) {
   return result;
 }
 
-// 專用 fetch：強制季更（frequency=q），避免 SLREV 預設回傳年度資料
+// 展開年度資料為季度（proxy 不支援 frequency 參數時的前端備援）
+function expandAnnualToQuarterly(data) {
+  // 若資料密度 < 6 筆/年 視為年度或低頻，展開成每季重複
+  if (data.length < 2) return data;
+  const years = data[data.length - 1].date.getFullYear() - data[0].date.getFullYear() + 1;
+  const isAnnual = (data.length / Math.max(years, 1)) < 2;
+  if (!isAnnual) return data;          // 已是季/月頻率，直接回傳
+
+  const quarterly = [];
+  data.forEach(d => {
+    for (let q = 0; q < 4; q++) {
+      quarterly.push({ date: new Date(d.date.getFullYear(), q * 3, 1), value: d.value });
+    }
+  });
+  return quarterly.sort((a, b) => a.date - b.date);
+}
+
+// 專用 fetch：先嘗試帶 frequency=q，失敗則 fallback 到無參數版本
 async function fetchGovtSeries(seriesId, apiKey, retries = 3) {
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      const url  = `/api/fred?series_id=${seriesId}&api_key=${encodeURIComponent(apiKey)}&frequency=q&observation_start=1990-01-01`;
+      const url  = `/api/fred?series_id=${seriesId}&api_key=${encodeURIComponent(apiKey)}`;
       const res  = await fetch(url);
       const json = await res.json();
       if (!json.observations) throw new Error(`無法取得 ${seriesId} 數據`);
-      return json.observations
+      const raw = json.observations
         .filter(o => o.value !== '.')
         .map(o => ({ date: new Date(o.date), value: parseFloat(o.value) }))
         .sort((a, b) => a.date - b.date);
+      return expandAnnualToQuarterly(raw);   // 年度→季度展開
     } catch (err) {
       if (attempt === retries - 1) throw err;
       await new Promise(r => setTimeout(r, 1200 * (attempt + 1)));
@@ -1848,10 +1866,10 @@ async function loadGovtData(apiKey) {
 
 function updateGovtStats() {
   const entries = [
-    { key: 'slExp',  valId: 'govt-sl-exp-val',  chgId: 'govt-sl-exp-chg'  },
-    { key: 'fedExp', valId: 'govt-fed-exp-val', chgId: 'govt-fed-exp-chg' },
-    { key: 'slRev',  valId: 'govt-sl-rev-val',  chgId: 'govt-sl-rev-chg'  },
-    { key: 'fedRev', valId: 'govt-fed-rev-val', chgId: 'govt-fed-rev-chg' },
+    { key: 'slExp',  valId: 'govt-sl-exp-val',  chgId: 'govt-sl-exp-chg',  dateId: 'govt-sl-exp-date'  },
+    { key: 'fedExp', valId: 'govt-fed-exp-val', chgId: 'govt-fed-exp-chg', dateId: 'govt-fed-exp-date' },
+    { key: 'slRev',  valId: 'govt-sl-rev-val',  chgId: 'govt-sl-rev-chg',  dateId: 'govt-sl-rev-date'  },
+    { key: 'fedRev', valId: 'govt-fed-rev-val', chgId: 'govt-fed-rev-chg', dateId: 'govt-fed-rev-date' },
   ];
   entries.forEach(e => {
     const arr  = govtData[e.key];
@@ -1869,6 +1887,12 @@ function updateGovtStats() {
       const chgEl = document.getElementById(e.chgId);
       chgEl.textContent = (delta >= 0 ? '▲ ' : '▼ ') + Math.abs(delta).toFixed(1) + 'pp vs 前季';
       chgEl.className   = 'stat-change ' + (delta >= 0 ? 'down' : 'up');
+    }
+
+    // 更新日期
+    const dateEl = document.getElementById(e.dateId);
+    if (dateEl) {
+      dateEl.textContent = last.date.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long' });
     }
   });
 }

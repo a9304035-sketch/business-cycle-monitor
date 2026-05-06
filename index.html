@@ -1151,11 +1151,80 @@
 <!-- ── 衰退期 ── -->
 <div id="tab-recession" class="tab-panel">
   <main class="main">
-    <div class="tab-empty">
-      <div class="tab-empty-icon">📉</div>
-      <div class="tab-empty-title">衰退期</div>
-      <div class="tab-empty-desc">RECESSION PHASE<br/>尚未加入圖表<br/>敬請期待</div>
+
+    <!-- ── 個人消費支出 ── -->
+    <div class="stats-row" id="pce-stats-row" style="display:none">
+      <div class="stat-card">
+        <div class="stat-label" style="color:#00c8e0">個人消費支出 YoY</div>
+        <div class="stat-value" id="pce-yoy-val">—</div>
+        <div class="stat-change" id="pce-yoy-chg" style="color:var(--text-dim)">—</div>
+        <div class="stat-date" id="pce-yoy-date">最新月年增率</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">3個月均值 YoY</div>
+        <div class="stat-value" id="pce-ma3-val">—</div>
+        <div class="stat-change" style="color:var(--text-dim)">3M 移動平均</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">6個月均值 YoY</div>
+        <div class="stat-value" id="pce-ma6-val">—</div>
+        <div class="stat-change" style="color:var(--text-dim)">6M 移動平均</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">12個月均值 YoY</div>
+        <div class="stat-value" id="pce-ma12-val">—</div>
+        <div class="stat-change" style="color:var(--text-dim)">12M 移動平均</div>
+      </div>
     </div>
+
+    <div class="chart-card">
+      <div class="chart-toolbar">
+        <div>
+          <div class="section-title-block">
+            <h2><button class="star-btn" id="star-pce" onclick="toggleStar('pce',this)" title="標記注意">⭐</button>個人</h2>
+            <div class="series-id">FRED: PCE — 月更 YoY %</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="toolbar-label">區間</span>
+          <div class="range-group">
+            <button class="range-btn" data-pcerange="1"   onclick="setPceRange('1',this)">1年</button>
+            <button class="range-btn" data-pcerange="3"   onclick="setPceRange('3',this)">3年</button>
+            <button class="range-btn" data-pcerange="5"   onclick="setPceRange('5',this)">5年</button>
+            <button class="range-btn active" data-pcerange="ALL" onclick="setPceRange('ALL',this)">全部</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-wrapper">
+        <div id="pce-intro" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:380px;gap:14px;color:var(--text-dim)">
+          <div style="font-size:48px;opacity:0.4">🛒</div>
+          <div style="font-family:var(--font-display);font-size:20px;letter-spacing:3px;color:var(--text-secondary)">等待數據載入</div>
+          <div style="font-family:var(--font-mono);font-size:11px;text-align:center;line-height:1.8">載入初領數據後<br/>個人消費數據將同步抓取</div>
+        </div>
+        <div id="pce-loading" class="overlay" style="display:none">
+          <div class="spinner"></div>
+          <div class="overlay-text">正在抓取個人消費支出數據...</div>
+        </div>
+        <div id="pce-error" class="overlay" style="display:none">
+          <div class="error-icon">⚠️</div>
+          <div class="error-msg" id="pce-error-msg"></div>
+        </div>
+        <canvas id="pce-chart" style="display:none"></canvas>
+      </div>
+
+      <div class="chart-legend" id="pce-legend" style="display:none">
+        <div class="legend-item"><div style="background:#00c8e0;height:12px;width:12px;border-radius:2px;display:inline-block"></div><span>正成長（YoY &gt; 0）</span></div>
+        <div class="legend-item"><div style="background:#e05050;height:12px;width:12px;border-radius:2px;display:inline-block"></div><span>負成長（YoY &lt; 0）</span></div>
+        <div class="legend-item"><div class="legend-swatch recession"></div><span>NBER 景氣衰退期</span></div>
+      </div>
+
+      <div id="pce-note" style="display:none;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#4a5a6a;letter-spacing:0.5px">
+        * Y 軸：個人消費支出 YoY %（PCE）／ 數據來源：美國商務部 BEA，月更季調年率
+      </div>
+      <div class="source-tag">SOURCE: FRED / ST. LOUIS FED</div>
+    </div>
+
   </main>
 </div>
 
@@ -1247,7 +1316,9 @@ async function loadData() {
       .then(() => new Promise(r => setTimeout(r, 2000)))
       .then(() => loadInvtData(apiKey))
       .then(() => new Promise(r => setTimeout(r, 2000)))
-      .then(() => loadDebtData(apiKey));
+      .then(() => loadDebtData(apiKey))
+      .then(() => new Promise(r => setTimeout(r, 2000)))
+      .then(() => loadPceData(apiKey));
 
   } catch (err) {
     showLoading(false);
@@ -2800,6 +2871,187 @@ function renderDebtChart() {
               return name + '：' + v.toFixed(2) + '%';
             },
             labelColor: item => ({ borderColor: item.dataset.borderColor, backgroundColor: item.dataset.borderColor }),
+          },
+        },
+      },
+    },
+  });
+}
+
+// ── 個人消費支出（PCE）直條圖 ───────────────────────────────────
+let pceData  = [];
+let pceChart = null;
+let pceRange = 'ALL';
+
+function setPceRange(r, btn) {
+  pceRange = r;
+  document.querySelectorAll('[data-pcerange]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (pceData.length) renderPceChart();
+}
+
+function applyPceRange(data) {
+  if (pceRange === 'ALL') return data;
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - parseInt(pceRange));
+  return data.filter(d => d.date >= cutoff);
+}
+
+function calcPceYoY(data) {
+  return data.slice(12).map((d, i) => {
+    const prev = data[i];
+    if (!prev || prev.value === 0) return null;
+    return {
+      date : d.date,
+      value: parseFloat(((d.value - prev.value) / Math.abs(prev.value) * 100).toFixed(3))
+    };
+  }).filter(Boolean);
+}
+
+async function loadPceData(apiKey) {
+  document.getElementById('pce-loading').style.display = 'flex';
+  document.getElementById('pce-intro').style.display   = 'none';
+  try {
+    const raw = await fetchConsSeries('PCE', apiKey);
+    pceData   = calcPceYoY(raw);
+
+    updatePceStats();
+    renderPceChart();
+
+    document.getElementById('pce-stats-row').style.display = 'grid';
+    document.getElementById('pce-legend').style.display    = 'flex';
+    document.getElementById('pce-note').style.display      = 'block';
+    document.getElementById('pce-loading').style.display   = 'none';
+
+    // 初始化星星
+    const stars = getStars();
+    const btn = document.getElementById('star-pce');
+    if (btn) btn.classList.toggle('lit', !!stars['pce']);
+  } catch (err) {
+    document.getElementById('pce-loading').style.display  = 'none';
+    document.getElementById('pce-error-msg').textContent  = '個人消費數據載入失敗：' + err.message;
+    document.getElementById('pce-error').style.display    = 'flex';
+  }
+}
+
+function updatePceStats() {
+  if (!pceData.length) return;
+  const arr  = pceData;
+  const last = arr[arr.length - 1];
+  const prev = arr[arr.length - 2];
+  const v    = last.value;
+
+  const el = id => document.getElementById(id);
+  el('pce-yoy-val').textContent = (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+  el('pce-yoy-val').className   = 'stat-value ' + (v >= 0 ? 'down' : 'up');
+
+  if (prev) {
+    const delta = v - prev.value;
+    el('pce-yoy-chg').textContent = (delta >= 0 ? '▲ ' : '▼ ') + Math.abs(delta).toFixed(2) + '% vs 上月';
+    el('pce-yoy-chg').className   = 'stat-change ' + (delta >= 0 ? 'down' : 'up');
+  }
+
+  el('pce-yoy-date').textContent = last.date.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long' });
+
+  const avg = n => (arr.slice(-n).reduce((a, b) => a + b.value, 0) / Math.min(arr.length, n));
+  const ma3  = avg(3);
+  const ma6  = avg(6);
+  const ma12 = avg(12);
+
+  el('pce-ma3-val').textContent  = (ma3  >= 0 ? '+' : '') + ma3.toFixed(2)  + '%';
+  el('pce-ma6-val').textContent  = (ma6  >= 0 ? '+' : '') + ma6.toFixed(2)  + '%';
+  el('pce-ma12-val').textContent = (ma12 >= 0 ? '+' : '') + ma12.toFixed(2) + '%';
+  el('pce-ma3-val').className    = 'stat-value ' + (ma3  >= 0 ? 'down' : 'up');
+  el('pce-ma6-val').className    = 'stat-value ' + (ma6  >= 0 ? 'down' : 'up');
+  el('pce-ma12-val').className   = 'stat-value ' + (ma12 >= 0 ? 'down' : 'up');
+}
+
+function renderPceChart() {
+  const ranged  = applyPceRange(pceData);
+  const toYM    = d => d.date.getFullYear() * 100 + d.date.getMonth();
+  const ymToDate= ym => new Date(Math.floor(ym / 100), ym % 100, 1);
+  const allYMs  = ranged.map(toYM);
+  const valMap  = Object.fromEntries(ranged.map(d => [toYM(d), d.value]));
+
+  const labels  = allYMs.map(ym => {
+    const d = ymToDate(ym);
+    return d.toLocaleDateString('zh-TW', { year: 'numeric', month: 'short' });
+  });
+
+  const values  = allYMs.map(ym => valMap[ym] !== undefined ? valMap[ym] : null);
+  const colors  = values.map(v => v === null ? 'transparent' : v >= 0 ? 'rgba(0,200,224,0.75)' : 'rgba(224,80,80,0.75)');
+  const borders = values.map(v => v === null ? 'transparent' : v >= 0 ? '#00c8e0' : '#e05050');
+
+  const processed = allYMs.map(ym => ({ date: ymToDate(ym) }));
+
+  const canvas = document.getElementById('pce-chart');
+  canvas.style.display = 'block';
+  if (pceChart) { pceChart.destroy(); pceChart = null; }
+
+  pceChart = new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: '個人消費支出 YoY %',
+        data:  values,
+        backgroundColor: colors,
+        borderColor:     borders,
+        borderWidth:     1,
+        borderRadius:    2,
+        borderSkipped:   false,
+      }]
+    },
+    plugins: [recessionPlugin(processed)],
+    options: {
+      responsive:          true,
+      maintainAspectRatio: false,
+      animation:           { duration: 500, easing: 'easeOutQuart' },
+      interaction:         { mode: 'index', intersect: false },
+      scales: {
+        x: {
+          grid:   { display: false },
+          border: { color: '#1e2d3d' },
+          ticks:  {
+            color: '#4a5a6a',
+            font:  { family: "'JetBrains Mono', monospace", size: 10 },
+            maxRotation: 0, autoSkip: true, maxTicksLimit: 12,
+          },
+        },
+        y: {
+          grid:   { color: 'rgba(30,45,61,0.8)', lineWidth: 1 },
+          border: { color: '#1e2d3d', dash: [4, 4] },
+          ticks:  {
+            color: '#4a5a6a',
+            font:  { family: "'JetBrains Mono', monospace", size: 10 },
+            callback: v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%',
+          },
+          title: {
+            display: true, text: '年增率（YoY %）',
+            color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 },
+          },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0d1318',
+          borderColor: '#2a4060', borderWidth: 1,
+          titleColor: '#8090a0', bodyColor: '#8090a0',
+          padding: 12,
+          titleFont: { family: "'JetBrains Mono', monospace", size: 11 },
+          bodyFont:  { family: "'JetBrains Mono', monospace", size: 11 },
+          callbacks: {
+            title: items => '📅 ' + items[0].label,
+            label: item => {
+              const v = item.parsed.y;
+              if (v === null) return null;
+              return '個人消費 YoY：' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+            },
+            labelColor: item => {
+              const c = item.parsed.y >= 0 ? '#00c8e0' : '#e05050';
+              return { borderColor: c, backgroundColor: c };
+            },
           },
         },
       },

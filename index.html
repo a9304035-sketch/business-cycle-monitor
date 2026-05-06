@@ -804,6 +804,91 @@
   </div>
 
 
+  <!-- ── 庫存增減 ── -->
+  <div style="height:32px"></div>
+
+  <div class="stats-row" id="invt-stats-row" style="display:none">
+    <div class="stat-card">
+      <div class="stat-label" style="color:#f0a500">整體商業庫存 YoY</div>
+      <div class="stat-value" id="invt-yoy-val">—</div>
+      <div class="stat-change" id="invt-yoy-chg" style="color:var(--text-dim)">—</div>
+      <div class="stat-date" id="invt-yoy-date">最新月年增率</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label" style="color:#bc8cff">庫存銷售比</div>
+      <div class="stat-value" id="invt-ratio-val">—</div>
+      <div class="stat-change" id="invt-ratio-chg" style="color:var(--text-dim)">—</div>
+      <div class="stat-date" id="invt-ratio-date">最新月比值</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">庫存 3M 均值 YoY</div>
+      <div class="stat-value" id="invt-ma3-val">—</div>
+      <div class="stat-change" style="color:var(--text-dim)">3個月移動平均</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">比值 52週均值</div>
+      <div class="stat-value" id="invt-ratio-ma12-val">—</div>
+      <div class="stat-change" style="color:var(--text-dim)">12個月移動平均</div>
+    </div>
+  </div>
+
+  <div class="chart-card">
+    <div class="chart-toolbar">
+      <div>
+        <div class="section-title-block">
+          <h2>庫存增減</h2>
+          <div class="series-id">FRED: BUSINV（月）· ISRATIO（月）— YoY % / 比值</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="toolbar-label">顯示</span>
+          <div class="toggle-group">
+            <button class="toggle-btn active" id="invt-ratio-btn" onclick="toggleInvtRatio(this)">📊 含銷售比</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="toolbar-label">區間</span>
+          <div class="range-group">
+            <button class="range-btn" data-invtrange="1"   onclick="setInvtRange('1',this)">1年</button>
+            <button class="range-btn" data-invtrange="3"   onclick="setInvtRange('3',this)">3年</button>
+            <button class="range-btn" data-invtrange="5"   onclick="setInvtRange('5',this)">5年</button>
+            <button class="range-btn active" data-invtrange="ALL" onclick="setInvtRange('ALL',this)">全部</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-wrapper">
+      <div id="invt-intro" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:380px;gap:14px;color:var(--text-dim)">
+        <div style="font-size:48px;opacity:0.4">📦</div>
+        <div style="font-family:var(--font-display);font-size:20px;letter-spacing:3px;color:var(--text-secondary)">等待數據載入</div>
+        <div style="font-family:var(--font-mono);font-size:11px;text-align:center;line-height:1.8">載入初領數據後<br/>庫存數據將同步抓取</div>
+      </div>
+      <div id="invt-loading" class="overlay" style="display:none">
+        <div class="spinner"></div>
+        <div class="overlay-text">正在抓取庫存數據...</div>
+      </div>
+      <div id="invt-error" class="overlay" style="display:none">
+        <div class="error-icon">⚠️</div>
+        <div class="error-msg" id="invt-error-msg"></div>
+      </div>
+      <canvas id="invt-chart" style="display:none"></canvas>
+    </div>
+
+    <div class="chart-legend" id="invt-legend" style="display:none">
+      <div class="legend-item"><div style="background:#f0a500;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>整體商業庫存 YoY %（左軸）</span></div>
+      <div class="legend-item" id="invt-ratio-legend-item"><div style="background:#bc8cff;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>庫存銷售比（右軸）</span></div>
+      <div class="legend-item"><div class="legend-swatch recession"></div><span>NBER 景氣衰退期</span></div>
+    </div>
+
+    <div id="invt-note" style="display:none;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#4a5a6a;letter-spacing:0.5px">
+      * 左軸：整體商業庫存 YoY %（BUSINV）／ 右軸：庫存銷售比（ISRATIO）／ 數據來源：美國商務部 Census Bureau，月更季調
+    </div>
+    <div class="source-tag">SOURCE: FRED / ST. LOUIS FED</div>
+  </div>
+
+
 </main>
 
 <script>
@@ -857,7 +942,9 @@ async function loadData() {
       .then(() => new Promise(r => setTimeout(r, 2000)))
       .then(() => loadInvData(apiKey))
       .then(() => new Promise(r => setTimeout(r, 2000)))
-      .then(() => loadGovtData(apiKey));
+      .then(() => loadGovtData(apiKey))
+      .then(() => new Promise(r => setTimeout(r, 2000)))
+      .then(() => loadInvtData(apiKey));
 
   } catch (err) {
     showLoading(false);
@@ -2016,11 +2103,233 @@ function renderGovtChart() {
     `<div class="legend-item"><div class="legend-swatch recession"></div><span>NBER 景氣衰退期</span></div>`;
 }
 
+// ── 庫存增減 ─────────────────────────────────────────────────
+let invtData   = { yoy: [], ratio: [] };
+let invtChart  = null;
+let invtRange  = 'ALL';
+let invtShowRatio = true;
+
+function setInvtRange(r, btn) {
+  invtRange = r;
+  document.querySelectorAll('[data-invtrange]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (invtData.yoy.length) renderInvtChart();
+}
+
+function toggleInvtRatio(btn) {
+  invtShowRatio = !invtShowRatio;
+  btn.classList.toggle('active', invtShowRatio);
+  btn.textContent = invtShowRatio ? '📊 含銷售比' : '📊 隱藏銷售比';
+  // 顯示/隱藏圖例
+  const legendItem = document.getElementById('invt-ratio-legend-item');
+  if (legendItem) legendItem.style.display = invtShowRatio ? '' : 'none';
+  if (invtData.yoy.length) renderInvtChart();
+}
+
+function applyInvtRange(data) {
+  if (invtRange === 'ALL') return data;
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - parseInt(invtRange));
+  return data.filter(d => d.date >= cutoff);
+}
+
+// 計算 YoY% from raw monthly level data
+function calcInvtYoY(data) {
+  return data.slice(12).map((d, i) => {
+    const prev = data[i];   // 12 months ago
+    if (!prev || prev.value === 0) return null;
+    return { date: d.date, value: parseFloat(((d.value - prev.value) / Math.abs(prev.value) * 100).toFixed(3)) };
+  }).filter(Boolean);
+}
+
+async function loadInvtData(apiKey) {
+  document.getElementById('invt-loading').style.display = 'flex';
+  document.getElementById('invt-intro').style.display   = 'none';
+  try {
+    const rawBusinv = await fetchConsSeries('BUSINV',  apiKey);
+    await new Promise(r => setTimeout(r, 800));
+    const rawRatio  = await fetchConsSeries('ISRATIO', apiKey);
+
+    invtData.yoy   = calcInvtYoY(rawBusinv);
+    invtData.ratio = rawRatio;   // 直接用比值，不計算 YoY
+
+    updateInvtStats();
+    renderInvtChart();
+
+    document.getElementById('invt-stats-row').style.display = 'grid';
+    document.getElementById('invt-legend').style.display    = 'flex';
+    document.getElementById('invt-note').style.display      = 'block';
+    document.getElementById('invt-loading').style.display   = 'none';
+  } catch (err) {
+    document.getElementById('invt-loading').style.display  = 'none';
+    document.getElementById('invt-error-msg').textContent  = '庫存數據載入失敗：' + err.message;
+    document.getElementById('invt-error').style.display    = 'flex';
+  }
+}
+
+function updateInvtStats() {
+  const el = id => document.getElementById(id);
+
+  // YoY stats
+  if (invtData.yoy.length) {
+    const arr   = invtData.yoy;
+    const last  = arr[arr.length - 1];
+    const prev  = arr[arr.length - 2];
+    const v     = last.value;
+    const delta = prev ? v - prev.value : null;
+    el('invt-yoy-val').textContent = (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+    el('invt-yoy-val').className   = 'stat-value ' + (v >= 0 ? 'down' : 'up');
+    if (delta !== null) {
+      el('invt-yoy-chg').textContent = (delta >= 0 ? '▲ ' : '▼ ') + Math.abs(delta).toFixed(1) + '% vs 上月';
+      el('invt-yoy-chg').className   = 'stat-change ' + (delta >= 0 ? 'down' : 'up');
+    }
+    el('invt-yoy-date').textContent = last.date.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long' });
+
+    // 3M MA
+    const ma3 = arr.slice(-3).reduce((a, b) => a + b.value, 0) / 3;
+    el('invt-ma3-val').textContent = (ma3 >= 0 ? '+' : '') + ma3.toFixed(1) + '%';
+    el('invt-ma3-val').className   = 'stat-value ' + (ma3 >= 0 ? 'down' : 'up');
+  }
+
+  // Ratio stats
+  if (invtData.ratio.length) {
+    const arr   = invtData.ratio;
+    const last  = arr[arr.length - 1];
+    const prev  = arr[arr.length - 2];
+    const v     = last.value;
+    const delta = prev ? v - prev.value : null;
+    el('invt-ratio-val').textContent = v.toFixed(2);
+    el('invt-ratio-val').className   = 'stat-value';
+    if (delta !== null) {
+      el('invt-ratio-chg').textContent = (delta >= 0 ? '▲ ' : '▼ ') + Math.abs(delta).toFixed(3) + ' vs 上月';
+      el('invt-ratio-chg').className   = 'stat-change ' + (delta >= 0 ? 'up' : 'down');
+    }
+    el('invt-ratio-date').textContent = last.date.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long' });
+
+    // 12M MA
+    const ma12 = arr.slice(-12).reduce((a, b) => a + b.value, 0) / Math.min(arr.length, 12);
+    el('invt-ratio-ma12-val').textContent = ma12.toFixed(2);
+  }
+}
+
+function renderInvtChart() {
+  const yoyData   = applyInvtRange(invtData.yoy);
+  const ratioData = applyInvtRange(invtData.ratio);
+
+  // Build unified monthly timeline by year-month
+  const toYM    = d => d.date.getFullYear() * 100 + d.date.getMonth();
+  const ymToDate= ym => new Date(Math.floor(ym / 100), ym % 100, 1);
+
+  const allYMs  = [...new Set([...yoyData.map(toYM), ...ratioData.map(toYM)])].sort();
+  const yoyMap  = Object.fromEntries(yoyData.map(d => [toYM(d), d.value]));
+  const ratMap  = Object.fromEntries(ratioData.map(d => [toYM(d), d.value]));
+
+  const labels    = allYMs.map(ym => ymToDate(ym).toLocaleDateString('zh-TW', { year:'numeric', month:'short' }));
+  const yoyVals   = allYMs.map(ym => yoyMap[ym]  !== undefined ? yoyMap[ym]  : null);
+  const ratioVals = allYMs.map(ym => ratMap[ym]   !== undefined ? ratMap[ym]  : null);
+
+  const processed = allYMs.map(ym => ({ date: ymToDate(ym) }));
+
+  const canvas = document.getElementById('invt-chart');
+  canvas.style.display = 'block';
+  if (invtChart) { invtChart.destroy(); invtChart = null; }
+
+  const datasets = [
+    {
+      label: '整體商業庫存 YoY %',
+      data: yoyVals,
+      borderColor: '#f0a500',
+      backgroundColor: 'rgba(240,165,0,0.08)',
+      borderWidth: 2,
+      pointRadius: 0,
+      pointHoverRadius: 5,
+      pointHoverBackgroundColor: '#f0a500',
+      tension: 0.2,
+      fill: false,
+      spanGaps: false,
+      yAxisID: 'yYoy',
+    },
+  ];
+
+  const scales = {
+    x: {
+      grid:   { color: 'rgba(30,45,61,0.8)', lineWidth: 1 },
+      border: { color: '#1e2d3d' },
+      ticks:  { color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 },
+    },
+    yYoy: {
+      position: 'left',
+      grid:     { color: 'rgba(30,45,61,0.8)', lineWidth: 1 },
+      border:   { color: '#1e2d3d', dash: [4, 4] },
+      ticks:    { color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%' },
+      title:    { display: true, text: '年增率（YoY %）', color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+    },
+  };
+
+  if (invtShowRatio) {
+    datasets.push({
+      label: '庫存銷售比',
+      data: ratioVals,
+      borderColor: '#bc8cff',
+      backgroundColor: 'rgba(188,140,255,0.08)',
+      borderWidth: 2,
+      pointRadius: 0,
+      pointHoverRadius: 5,
+      pointHoverBackgroundColor: '#bc8cff',
+      tension: 0.3,
+      fill: false,
+      spanGaps: false,
+      yAxisID: 'yRatio',
+    });
+    scales.yRatio = {
+      position: 'right',
+      grid:     { drawOnChartArea: false },
+      border:   { color: '#1e2d3d', dash: [4, 4] },
+      ticks:    { color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 }, callback: v => v.toFixed(2) },
+      title:    { display: true, text: '庫存銷售比', color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 } },
+    };
+  }
+
+  invtChart = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: { labels, datasets },
+    plugins: [recessionPlugin(processed)],
+    options: {
+      responsive:          true,
+      maintainAspectRatio: false,
+      animation:           { duration: 600, easing: 'easeOutQuart' },
+      interaction:         { mode: 'index', intersect: false },
+      scales,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#0d1318',
+          borderColor: '#2a4060', borderWidth: 1,
+          titleColor: '#8090a0', bodyColor: '#8090a0',
+          padding: 12,
+          titleFont: { family: "'JetBrains Mono', monospace", size: 11 },
+          bodyFont:  { family: "'JetBrains Mono', monospace", size: 11 },
+          callbacks: {
+            title: items => '📅 ' + items[0].label,
+            label: item => {
+              const v = item.parsed.y;
+              if (v === null || v === undefined) return null;
+              if (item.datasetIndex === 0) return '庫存 YoY：' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+              return '銷售比：' + v.toFixed(3);
+            },
+            labelColor: item => ({ borderColor: item.dataset.borderColor, backgroundColor: item.dataset.borderColor }),
+          },
+        },
+      },
+    },
+  });
+}
+
+
+
 document.getElementById('api-key-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') loadData();
 });
-
-const savedKey = localStorage.getItem('fred_api_key');
 if (savedKey) {
   document.getElementById('api-key-input').value = savedKey;
   loadData();

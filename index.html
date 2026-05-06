@@ -916,12 +916,6 @@
       <div class="stat-date" id="govt-fed-exp-date">最新季年增率</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label" style="color:#40c870">州與地方政府收入 YoY</div>
-      <div class="stat-value" id="govt-sl-rev-val">—</div>
-      <div class="stat-change" id="govt-sl-rev-chg" style="color:var(--text-dim)">—</div>
-      <div class="stat-date" id="govt-sl-rev-date">最新季年增率</div>
-    </div>
-    <div class="stat-card">
       <div class="stat-label" style="color:#00c8e0">聯邦政府收入 YoY</div>
       <div class="stat-value" id="govt-fed-rev-val">—</div>
       <div class="stat-change" id="govt-fed-rev-chg" style="color:var(--text-dim)">—</div>
@@ -934,7 +928,7 @@
       <div>
         <div class="section-title-block">
           <h2><button class="star-btn" id="star-govt" onclick="toggleStar('govt',this)" title="標記注意">⭐</button>政府收入與支出</h2>
-          <div class="series-id">FRED: SLEXPND · FGEXPND · SLREV · FGRECPT — 季更 YoY %</div>
+          <div class="series-id">FRED: SLEXPND · FGEXPND · FGRECPT — 季更 YoY %</div>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -1182,7 +1176,7 @@
         <div>
           <div class="section-title-block">
             <h2><button class="star-btn" id="star-pce" onclick="toggleStar('pce',this)" title="標記注意">⭐</button>個人消費支出年增率</h2>
-            <div class="series-id">FRED: DPCERX1M086SBEA — 月更 實質 YoY %</div>
+            <div class="series-id">FRED: PCE ÷ PCEPI × 100 — 月更 實質 YoY %</div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
@@ -1220,7 +1214,7 @@
       </div>
 
       <div id="pce-note" style="display:none;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#4a5a6a;letter-spacing:0.5px">
-        * Y 軸：實質個人消費支出 YoY %（DPCERX1M086SBEA）／ 數據來源：美國商務部 BEA，2017年鏈鎖美元，月更季調
+        * Y 軸：實質個人消費支出 YoY %（PCE ÷ PCEPI × 100）／ 數據來源：美國商務部 BEA，月更季調
       </div>
       <div class="source-tag">SOURCE: FRED / ST. LOUIS FED</div>
     </div>
@@ -1620,27 +1614,10 @@ async function fetchConsSeries(seriesId, apiKey, retries = 3) {
   }
 }
 
-// 直接呼叫 FRED API（繞過 Vercel proxy，用於 proxy 不支援的 series）
-async function fetchFredDirect(seriesId, apiKey, retries = 3) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const url = `https://api.stlouisfed.org/fred/series/observations`
-        + `?series_id=${seriesId}`
-        + `&api_key=${encodeURIComponent(apiKey)}`
-        + `&file_type=json`
-        + `&observation_start=1980-01-01`;
-      const res  = await fetch(url);
-      const json = await res.json();
-      if (!json.observations) throw new Error(`無法取得 ${seriesId} 數據`);
-      return json.observations
-        .filter(o => o.value !== '.')
-        .map(o => ({ date: new Date(o.date), value: parseFloat(o.value) }))
-        .sort((a, b) => a.date - b.date);
-    } catch (err) {
-      if (i === retries - 1) throw err;
-      await new Promise(r => setTimeout(r, 1500 * (i + 1)));
-    }
-  }
+// 政府財政 fetch
+async function fetchGovtSeries(seriesId, apiKey) {
+  const raw = await fetchConsSeries(seriesId, apiKey);
+  return expandAnnualToQuarterly(raw);
 }
 
 async function loadConsData(apiKey) {
@@ -2271,10 +2248,9 @@ function renderInvChart() {
 
 // ── 政府收入與支出 ─────────────────────────────────────────────
 const GOVT_SERIES = {
-  slExp:  { id: 'SLEXPND',  label: '州與地方政府支出', color: '#f0a500', side: 'exp' },
-  fedExp: { id: 'FGEXPND',  label: '聯邦政府支出',     color: '#e05050', side: 'exp' },
-  slRev:  { id: 'SLREV',    label: '州與地方政府收入', color: '#40c870', side: 'rev' },
-  fedRev: { id: 'FGRECPT',  label: '聯邦政府收入',     color: '#00c8e0', side: 'rev' },
+  slExp:  { id: 'SLEXPND', label: '州與地方政府支出', color: '#f0a500', side: 'exp' },
+  fedExp: { id: 'FGEXPND', label: '聯邦政府支出',     color: '#e05050', side: 'exp' },
+  fedRev: { id: 'FGRECPT', label: '聯邦政府收入',     color: '#00c8e0', side: 'rev' },
 };
 
 let govtData  = {};
@@ -2318,12 +2294,9 @@ function expandAnnualToQuarterly(data) {
   return quarterly.sort((a, b) => a.date - b.date);
 }
 
-// 政府財政 fetch：proxy 支援的走 proxy，不支援的直接呼叫 FRED
+// 政府財政 fetch
 async function fetchGovtSeries(seriesId, apiKey) {
-  // SLREV 等 proxy 不支援的 series，直接走 FRED API
-  const DIRECT_SERIES = ['SLREV'];
-  const fetcher = DIRECT_SERIES.includes(seriesId) ? fetchFredDirect : fetchConsSeries;
-  const raw = await fetcher(seriesId, apiKey);
+  const raw = await fetchConsSeries(seriesId, apiKey);
   return expandAnnualToQuarterly(raw);
 }
 
@@ -2365,7 +2338,6 @@ function updateGovtStats() {
   const entries = [
     { key: 'slExp',  valId: 'govt-sl-exp-val',  chgId: 'govt-sl-exp-chg',  dateId: 'govt-sl-exp-date'  },
     { key: 'fedExp', valId: 'govt-fed-exp-val', chgId: 'govt-fed-exp-chg', dateId: 'govt-fed-exp-date' },
-    { key: 'slRev',  valId: 'govt-sl-rev-val',  chgId: 'govt-sl-rev-chg',  dateId: 'govt-sl-rev-date'  },
     { key: 'fedRev', valId: 'govt-fed-rev-val', chgId: 'govt-fed-rev-chg', dateId: 'govt-fed-rev-date' },
   ];
   entries.forEach(e => {
@@ -2956,8 +2928,27 @@ async function loadPceData(apiKey) {
   document.getElementById('pce-loading').style.display = 'flex';
   document.getElementById('pce-intro').style.display   = 'none';
   try {
-    const raw = await fetchFredDirect('DPCERX1M086SBEA', apiKey);
-    pceData   = calcPceYoY(raw);
+    // 兩個 series 都走 proxy（已知可用）
+    const rawPce  = await fetchConsSeries('PCE',   apiKey);   // 名目 PCE，$B
+    await new Promise(r => setTimeout(r, 800));
+    const rawPcpi = await fetchConsSeries('PCEPI', apiKey);   // PCE 物價指數，2017=100
+
+    // 建立 PCEPI 月份查詢表
+    const pcpiMap = Object.fromEntries(
+      rawPcpi.map(d => [d.date.getFullYear() * 100 + d.date.getMonth(), d.value])
+    );
+
+    // 計算實質 PCE = (名目 PCE / PCEPI) × 100，再與去年同月比較得 YoY%
+    const realPce = rawPce
+      .map(d => {
+        const key  = d.date.getFullYear() * 100 + d.date.getMonth();
+        const pcpi = pcpiMap[key];
+        if (!pcpi) return null;
+        return { date: d.date, value: (d.value / pcpi) * 100 };
+      })
+      .filter(Boolean);
+
+    pceData = calcPceYoY(realPce);
 
     updatePceStats();
     renderPceChart();
@@ -2967,7 +2958,6 @@ async function loadPceData(apiKey) {
     document.getElementById('pce-note').style.display      = 'block';
     document.getElementById('pce-loading').style.display   = 'none';
 
-    // 初始化星星
     const stars = getStars();
     const btn = document.getElementById('star-pce');
     if (btn) btn.classList.toggle('lit', !!stars['pce']);

@@ -1182,7 +1182,7 @@
         <div>
           <div class="section-title-block">
             <h2><button class="star-btn" id="star-pce" onclick="toggleStar('pce',this)" title="標記注意">⭐</button>個人消費支出年增率</h2>
-            <div class="series-id">FRED: PCE — 月更 YoY %</div>
+            <div class="series-id">FRED: DPCERX1M086SBEA — 月更 實質 YoY %</div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
@@ -1220,7 +1220,7 @@
       </div>
 
       <div id="pce-note" style="display:none;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#4a5a6a;letter-spacing:0.5px">
-        * Y 軸：個人消費支出 YoY %（PCE）／ 數據來源：美國商務部 BEA，月更季調年率
+        * Y 軸：實質個人消費支出 YoY %（DPCERX1M086SBEA）／ 數據來源：美國商務部 BEA，2017年鏈鎖美元，月更季調
       </div>
       <div class="source-tag">SOURCE: FRED / ST. LOUIS FED</div>
     </div>
@@ -2944,7 +2944,7 @@ async function loadPceData(apiKey) {
   document.getElementById('pce-loading').style.display = 'flex';
   document.getElementById('pce-intro').style.display   = 'none';
   try {
-    const raw = await fetchConsSeries('PCE', apiKey);
+    const raw = await fetchConsSeries('DPCERX1M086SBEA', apiKey);
     pceData   = calcPceYoY(raw);
 
     updatePceStats();
@@ -3078,7 +3078,7 @@ function renderPceChart() {
             label: item => {
               const v = item.parsed.y;
               if (v === null) return null;
-              return '個人消費 YoY：' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+              return '實質消費 YoY：' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
             },
             labelColor: item => {
               const c = item.parsed.y >= 0 ? '#00c8e0' : '#e05050';

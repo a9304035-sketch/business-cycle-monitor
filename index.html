@@ -7,6 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=JetBrains+Mono:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/2.0.1/chartjs-plugin-zoom.min.js"></script>
 
   <style>
     :root {
@@ -467,6 +469,29 @@
 
     .star-btn:not(.lit) { filter: grayscale(1) opacity(0.35); }
 
+    /* ── 縮放重置按鈕 ─────────────────────────────────────── */
+    .zoom-reset-btn {
+      display: none;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      background: rgba(88,166,255,0.10);
+      border: 1px solid rgba(88,166,255,0.30);
+      border-radius: 5px;
+      color: #58a6ff;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: .06em;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+      animation: fadeIn .2s ease;
+    }
+    .zoom-reset-btn:hover { background: rgba(88,166,255,0.22); border-color: rgba(88,166,255,.6); }
+    .zoom-reset-btn.visible { display: flex; }
+    .chart-wrapper { cursor: grab; }
+    .chart-wrapper:active { cursor: grabbing; }
+
     @keyframes starPop {
       0%   { transform: scale(1); }
       50%  { transform: scale(1.4); }
@@ -611,6 +636,7 @@
             <button class="range-btn" data-range="10Y" onclick="setRange('10Y', this)">10Y</button>
             <button class="range-btn active" data-range="ALL" onclick="setRange('ALL', this)">全部</button>
           </div>
+          <button class="zoom-reset-btn" id="zoom-reset-main" onclick="resetZoom('main')">↺ 重置縮放</button>
         </div>
       </div>
     </div>
@@ -702,6 +728,7 @@
             <button class="toggle-btn"        data-cgran="ALL" onclick="setConsRange('ALL',this)">全部</button>
           </div>
         </div>
+        <button class="zoom-reset-btn" id="zoom-reset-cons" onclick="resetZoom('cons')">↺ 重置縮放</button>
       </div>
     </div>
 
@@ -779,6 +806,7 @@
             <button class="range-btn active" data-srange="ALL" onclick="setSentRange('ALL',this)">全部</button>
           </div>
         </div>
+        <button class="zoom-reset-btn" id="zoom-reset-sent" onclick="resetZoom('sent')">↺ 重置縮放</button>
       </div>
     </div>
 
@@ -866,6 +894,7 @@
             <button class="range-btn active" data-irange="ALL" onclick="setInvRange('ALL',this)">全部</button>
           </div>
         </div>
+        <button class="zoom-reset-btn" id="zoom-reset-inv" onclick="resetZoom('inv')">↺ 重置縮放</button>
       </div>
     </div>
 
@@ -948,6 +977,7 @@
             <button class="range-btn active" data-grange="ALL" onclick="setGovtRange('ALL',this)">全部</button>
           </div>
         </div>
+        <button class="zoom-reset-btn" id="zoom-reset-govt" onclick="resetZoom('govt')">↺ 重置縮放</button>
       </div>
     </div>
 
@@ -1029,11 +1059,9 @@
             <button class="range-btn active" data-invtrange="ALL" onclick="setInvtRange('ALL',this)">全部</button>
           </div>
         </div>
+        <button class="zoom-reset-btn" id="zoom-reset-invt" onclick="resetZoom('invt')">↺ 重置縮放</button>
       </div>
-    </div>
-
-    <div class="chart-wrapper">
-      <div id="invt-intro" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:380px;gap:14px;color:var(--text-dim)">
+    </div> style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:380px;gap:14px;color:var(--text-dim)">
         <div style="font-size:48px;opacity:0.4">📦</div>
         <div style="font-family:var(--font-display);font-size:20px;letter-spacing:3px;color:var(--text-secondary)">等待數據載入</div>
         <div style="font-family:var(--font-mono);font-size:11px;text-align:center;line-height:1.8">載入初領數據後<br/>庫存數據將同步抓取</div>
@@ -1107,10 +1135,8 @@
           <button class="range-btn active" data-debtrange="ALL" onclick="setDebtRange('ALL',this)">全部</button>
         </div>
       </div>
-    </div>
-
-    <div class="chart-wrapper">
-      <div id="debt-intro" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:380px;gap:14px;color:var(--text-dim)">
+      <button class="zoom-reset-btn" id="zoom-reset-debt" onclick="resetZoom('debt')">↺ 重置縮放</button>
+    </div> style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:380px;gap:14px;color:var(--text-dim)">
         <div style="font-size:48px;opacity:0.4">⚠️</div>
         <div style="font-family:var(--font-display);font-size:20px;letter-spacing:3px;color:var(--text-secondary)">等待數據載入</div>
         <div style="font-family:var(--font-mono);font-size:11px;text-align:center;line-height:1.8">載入初領數據後<br/>債務違約數據將同步抓取</div>
@@ -1188,6 +1214,7 @@
             <button class="range-btn active" data-pcerange="ALL" onclick="setPceRange('ALL',this)">全部</button>
           </div>
         </div>
+        <button class="zoom-reset-btn" id="zoom-reset-pce" onclick="resetZoom('pce')">↺ 重置縮放</button>
       </div>
 
       <div class="chart-wrapper">
@@ -1261,6 +1288,46 @@ function switchTab(tabId, btn) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + tabId).classList.add('active');
   loadTabData(tabId);   // 首次切換才觸發載入
+}
+
+// ── 縮放功能 ──────────────────────────────────────────────────
+const ZOOM_CHART_MAP = {
+  main: () => chart,
+  cons: () => consChart,
+  sent: () => sentChart,
+  inv:  () => invChart,
+  govt: () => govtChart,
+  invt: () => invtChart,
+  debt: () => debtChart,
+  pce:  () => pceChart,
+};
+
+function zoomPluginOptions(chartKey) {
+  return {
+    zoom: {
+      wheel: { enabled: true, speed: 0.1 },
+      pinch: { enabled: true },
+      mode:  'x',
+      onZoom: () => showResetBtn(chartKey, true),
+    },
+    pan: {
+      enabled: true,
+      mode:    'x',
+      onPan:   () => showResetBtn(chartKey, true),
+    },
+  };
+}
+
+function showResetBtn(chartKey, show) {
+  const btn = document.getElementById('zoom-reset-' + chartKey);
+  if (btn) btn.classList.toggle('visible', show);
+}
+
+function resetZoom(chartKey) {
+  const getChart = ZOOM_CHART_MAP[chartKey];
+  if (!getChart) return;
+  const c = getChart();
+  if (c) { c.resetZoom(); showResetBtn(chartKey, false); }
 }
 
 // ── 星星標記 ──────────────────────────────────────────────────
@@ -1501,6 +1568,7 @@ function renderChart() {
       },
       plugins: {
         legend: { display: false },
+        zoom: zoomPluginOptions('main'),
         tooltip: {
           backgroundColor: '#0d1318',
           borderColor: '#2a4060', borderWidth: 1,
@@ -1801,6 +1869,7 @@ function renderConsChart() {
       },
       plugins: {
         legend: { display: false },
+        zoom: zoomPluginOptions('cons'),
         tooltip: {
           backgroundColor: '#0d1318',
           borderColor: '#2a4060', borderWidth: 1,
@@ -1967,6 +2036,7 @@ function renderSentChart() {
       },
       plugins: {
         legend: { display: false },
+        zoom: zoomPluginOptions('sent'),
         tooltip: {
           backgroundColor: '#0d1318',
           borderColor: '#2a4060', borderWidth: 1,
@@ -2223,6 +2293,7 @@ function renderInvChart() {
       },
       plugins: {
         legend: { display: false },
+        zoom: zoomPluginOptions('inv'),
         tooltip: {
           backgroundColor: '#0d1318',
           borderColor: '#2a4060', borderWidth: 1,
@@ -2454,6 +2525,7 @@ function renderGovtChart() {
       },
       plugins: {
         legend: { display: false },
+        zoom: zoomPluginOptions('govt'),
         tooltip: {
           backgroundColor: '#0d1318',
           borderColor: '#2a4060', borderWidth: 1,
@@ -2684,6 +2756,7 @@ function renderInvtChart() {
       scales,
       plugins: {
         legend: { display: false },
+        zoom: zoomPluginOptions('invt'),
         tooltip: {
           backgroundColor: '#0d1318',
           borderColor: '#2a4060', borderWidth: 1,
@@ -2863,6 +2936,7 @@ function renderDebtChart() {
       },
       plugins: {
         legend: { display: false },
+        zoom: zoomPluginOptions('debt'),
         tooltip: {
           backgroundColor: '#0d1318',
           borderColor: '#2a4060', borderWidth: 1,
@@ -3068,6 +3142,7 @@ function renderPceChart() {
       },
       plugins: {
         legend: { display: false },
+        zoom: zoomPluginOptions('pce'),
         tooltip: {
           backgroundColor: '#0d1318',
           borderColor: '#2a4060', borderWidth: 1,

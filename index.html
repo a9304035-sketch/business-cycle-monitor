@@ -1302,18 +1302,41 @@ const ZOOM_CHART_MAP = {
   pce:  () => pceChart,
 };
 
+// debounce helper
+function debounce(fn, ms) {
+  let timer;
+  return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
+}
+
+// 各圖表最小可顯示資料點數（防止過度縮放）
+const ZOOM_MIN_RANGE = {
+  main: 8,   // ICSA 週更
+  cons: 4,   // 月更
+  sent: 4,
+  inv:  4,
+  govt: 4,   // 季更
+  invt: 4,
+  debt: 4,
+  pce:  4,
+};
+
 function zoomPluginOptions(chartKey) {
+  const onInteract = debounce(() => showResetBtn(chartKey, true), 80);
   return {
+    limits: {
+      x: { minRange: ZOOM_MIN_RANGE[chartKey] ?? 4 },
+    },
     zoom: {
-      wheel: { enabled: true, speed: 0.1 },
+      wheel: { enabled: true, speed: 0.08 },
       pinch: { enabled: true },
       mode:  'x',
-      onZoom: () => showResetBtn(chartKey, true),
+      onZoom: onInteract,
     },
     pan: {
       enabled: true,
       mode:    'x',
-      onPan:   () => showResetBtn(chartKey, true),
+      threshold: 5,
+      onPan: onInteract,
     },
   };
 }
@@ -1355,6 +1378,20 @@ function initStars() {
 // 頁面載入後初始化星星狀態
 document.addEventListener('DOMContentLoaded', initStars);
 
+// 安全元素存取：element 不存在時靜默跳過，不拋出 TypeError
+function setDisplay(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = value;
+}
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+function setClass(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.className = value;
+}
+
 const RECESSIONS = [
   { start: '2001-03-01', end: '2001-11-30' },
   { start: '2007-12-01', end: '2009-06-30' },
@@ -1394,9 +1431,9 @@ async function loadData() {
 
     updateStats();
     renderChart();
-    document.getElementById('stats-row').style.display   = 'grid';
-    document.getElementById('chart-legend').style.display = 'flex';
-    document.getElementById('chart-note').style.display   = 'block';
+    setDisplay('stats-row', 'grid');
+    setDisplay('chart-legend', 'flex');
+    setDisplay('chart-note', 'block');
     showLoading(false);
 
     // 儲存 API Key 供懶載入使用
@@ -1623,11 +1660,11 @@ function showLoading(show) {
 
 function showError(msg) {
   document.getElementById('error-msg').textContent = msg;
-  document.getElementById('error-overlay').style.display = 'flex';
+  setDisplay('error-overlay', 'flex');
 }
 
 function hideError() {
-  document.getElementById('error-overlay').style.display = 'none';
+  setDisplay('error-overlay', 'none');
 }
 
 function hideIntro() {
@@ -1689,8 +1726,8 @@ async function fetchGovtSeries(seriesId, apiKey) {
 }
 
 async function loadConsData(apiKey) {
-  document.getElementById('cons-loading').style.display = 'flex';
-  document.getElementById('cons-intro').style.display   = 'none';
+  setDisplay('cons-loading', 'flex');
+  setDisplay('cons-intro', 'none');
 
   try {
     const rawRetail = await fetchConsSeries('RSAFS',   apiKey);
@@ -1706,15 +1743,15 @@ async function loadConsData(apiKey) {
     updateConsStats();
     renderConsChart();
 
-    document.getElementById('cons-stats-row').style.display = 'grid';
-    document.getElementById('cons-legend').style.display    = 'flex';
-    document.getElementById('cons-note').style.display      = 'block';
-    document.getElementById('cons-loading').style.display   = 'none';
+    setDisplay('cons-stats-row', 'grid');
+    setDisplay('cons-legend', 'flex');
+    setDisplay('cons-note', 'block');
+    setDisplay('cons-loading', 'none');
 
   } catch(err) {
-    document.getElementById('cons-loading').style.display  = 'none';
+    setDisplay('cons-loading', 'none');
     document.getElementById('cons-error-msg').textContent  = '消費數據載入失敗：' + err.message;
-    document.getElementById('cons-error').style.display    = 'flex';
+    setDisplay('cons-error', 'flex');
   }
 }
 
@@ -1934,8 +1971,8 @@ function aggSentYearly(data) {
 }
 
 async function loadSentData(apiKey) {
-  document.getElementById('sent-loading').style.display = 'flex';
-  document.getElementById('sent-intro').style.display   = 'none';
+  setDisplay('sent-loading', 'flex');
+  setDisplay('sent-intro', 'none');
 
   try {
     const rawMich = await fetchConsSeries('UMCSENT', apiKey);
@@ -1945,15 +1982,15 @@ async function loadSentData(apiKey) {
     updateSentStats();
     renderSentChart();
 
-    document.getElementById('sent-stats-row').style.display = 'grid';
-    document.getElementById('sent-legend').style.display    = 'flex';
-    document.getElementById('sent-note').style.display      = 'block';
-    document.getElementById('sent-loading').style.display   = 'none';
+    setDisplay('sent-stats-row', 'grid');
+    setDisplay('sent-legend', 'flex');
+    setDisplay('sent-note', 'block');
+    setDisplay('sent-loading', 'none');
 
   } catch(err) {
-    document.getElementById('sent-loading').style.display  = 'none';
+    setDisplay('sent-loading', 'none');
     document.getElementById('sent-error-msg').textContent  = '消費者信心數據載入失敗：' + err.message;
-    document.getElementById('sent-error').style.display    = 'flex';
+    setDisplay('sent-error', 'flex');
   }
 }
 
@@ -2107,8 +2144,8 @@ function expandQuarterlyToMonthly(qData) {
 }
 
 async function loadInvData(apiKey) {
-  document.getElementById('inv-loading').style.display = 'flex';
-  document.getElementById('inv-intro').style.display   = 'none';
+  setDisplay('inv-loading', 'flex');
+  setDisplay('inv-intro', 'none');
   try {
     const rawPrfi = await fetchConsSeries('FPIC1',   apiKey);
     await new Promise(r => setTimeout(r, 1000));
@@ -2130,14 +2167,14 @@ async function loadInvData(apiKey) {
     updateInvStats();
     renderInvChart();
 
-    document.getElementById('inv-stats-row').style.display = 'grid';
-    document.getElementById('inv-legend').style.display    = 'flex';
-    document.getElementById('inv-note').style.display      = 'block';
-    document.getElementById('inv-loading').style.display   = 'none';
+    setDisplay('inv-stats-row', 'grid');
+    setDisplay('inv-legend', 'flex');
+    setDisplay('inv-note', 'block');
+    setDisplay('inv-loading', 'none');
   } catch(err) {
-    document.getElementById('inv-loading').style.display  = 'none';
+    setDisplay('inv-loading', 'none');
     document.getElementById('inv-error-msg').textContent  = '民間投資數據載入失敗：' + err.message;
-    document.getElementById('inv-error').style.display    = 'flex';
+    setDisplay('inv-error', 'flex');
   }
 }
 
@@ -2372,8 +2409,8 @@ async function fetchGovtSeries(seriesId, apiKey) {
 }
 
 async function loadGovtData(apiKey) {
-  document.getElementById('govt-loading').style.display = 'flex';
-  document.getElementById('govt-intro').style.display   = 'none';
+  setDisplay('govt-loading', 'flex');
+  setDisplay('govt-intro', 'none');
   try {
     const results = {};
     for (const [key, s] of Object.entries(GOVT_SERIES)) {
@@ -2394,14 +2431,14 @@ async function loadGovtData(apiKey) {
     updateGovtStats();
     renderGovtChart();
 
-    document.getElementById('govt-stats-row').style.display = 'grid';
-    document.getElementById('govt-legend').style.display    = 'flex';
-    document.getElementById('govt-note').style.display      = 'block';
-    document.getElementById('govt-loading').style.display   = 'none';
+    setDisplay('govt-stats-row', 'grid');
+    setDisplay('govt-legend', 'flex');
+    setDisplay('govt-note', 'block');
+    setDisplay('govt-loading', 'none');
   } catch (err) {
-    document.getElementById('govt-loading').style.display  = 'none';
+    setDisplay('govt-loading', 'none');
     document.getElementById('govt-error-msg').textContent  = '政府財政數據載入失敗：' + err.message;
-    document.getElementById('govt-error').style.display    = 'flex';
+    setDisplay('govt-error', 'flex');
   }
 }
 
@@ -2597,8 +2634,8 @@ function calcInvtYoY(data) {
 }
 
 async function loadInvtData(apiKey) {
-  document.getElementById('invt-loading').style.display = 'flex';
-  document.getElementById('invt-intro').style.display   = 'none';
+  setDisplay('invt-loading', 'flex');
+  setDisplay('invt-intro', 'none');
   try {
     const rawBusinv = await fetchConsSeries('BUSINV',  apiKey);
     await new Promise(r => setTimeout(r, 800));
@@ -2610,14 +2647,14 @@ async function loadInvtData(apiKey) {
     updateInvtStats();
     renderInvtChart();
 
-    document.getElementById('invt-stats-row').style.display = 'grid';
-    document.getElementById('invt-legend').style.display    = 'flex';
-    document.getElementById('invt-note').style.display      = 'block';
-    document.getElementById('invt-loading').style.display   = 'none';
+    setDisplay('invt-stats-row', 'grid');
+    setDisplay('invt-legend', 'flex');
+    setDisplay('invt-note', 'block');
+    setDisplay('invt-loading', 'none');
   } catch (err) {
-    document.getElementById('invt-loading').style.display  = 'none';
+    setDisplay('invt-loading', 'none');
     document.getElementById('invt-error-msg').textContent  = '庫存數據載入失敗：' + err.message;
-    document.getElementById('invt-error').style.display    = 'flex';
+    setDisplay('invt-error', 'flex');
   }
 }
 
@@ -2806,8 +2843,8 @@ function applyDebtRange(data) {
 }
 
 async function loadDebtData(apiKey) {
-  document.getElementById('debt-loading').style.display = 'flex';
-  document.getElementById('debt-intro').style.display   = 'none';
+  setDisplay('debt-loading', 'flex');
+  setDisplay('debt-intro', 'none');
   try {
     const rawCons = await fetchConsSeries('DRCLACBS', apiKey);
     await new Promise(r => setTimeout(r, 800));
@@ -2819,14 +2856,14 @@ async function loadDebtData(apiKey) {
     updateDebtStats();
     renderDebtChart();
 
-    document.getElementById('debt-stats-row').style.display = 'grid';
-    document.getElementById('debt-legend').style.display    = 'flex';
-    document.getElementById('debt-note').style.display      = 'block';
-    document.getElementById('debt-loading').style.display   = 'none';
+    setDisplay('debt-stats-row', 'grid');
+    setDisplay('debt-legend', 'flex');
+    setDisplay('debt-note', 'block');
+    setDisplay('debt-loading', 'none');
   } catch (err) {
-    document.getElementById('debt-loading').style.display  = 'none';
+    setDisplay('debt-loading', 'none');
     document.getElementById('debt-error-msg').textContent  = '違約率數據載入失敗：' + err.message;
-    document.getElementById('debt-error').style.display    = 'flex';
+    setDisplay('debt-error', 'flex');
   }
 }
 
@@ -2999,8 +3036,8 @@ function calcPceYoY(data) {
 }
 
 async function loadPceData(apiKey) {
-  document.getElementById('pce-loading').style.display = 'flex';
-  document.getElementById('pce-intro').style.display   = 'none';
+  setDisplay('pce-loading', 'flex');
+  setDisplay('pce-intro', 'none');
   try {
     // 兩個 series 都走 proxy（已知可用）
     const rawPce  = await fetchConsSeries('PCE',   apiKey);   // 名目 PCE，$B
@@ -3027,18 +3064,18 @@ async function loadPceData(apiKey) {
     updatePceStats();
     renderPceChart();
 
-    document.getElementById('pce-stats-row').style.display = 'grid';
-    document.getElementById('pce-legend').style.display    = 'flex';
-    document.getElementById('pce-note').style.display      = 'block';
-    document.getElementById('pce-loading').style.display   = 'none';
+    setDisplay('pce-stats-row', 'grid');
+    setDisplay('pce-legend', 'flex');
+    setDisplay('pce-note', 'block');
+    setDisplay('pce-loading', 'none');
 
     const stars = getStars();
     const btn = document.getElementById('star-pce');
     if (btn) btn.classList.toggle('lit', !!stars['pce']);
   } catch (err) {
-    document.getElementById('pce-loading').style.display  = 'none';
+    setDisplay('pce-loading', 'none');
     document.getElementById('pce-error-msg').textContent  = '個人消費數據載入失敗：' + err.message;
-    document.getElementById('pce-error').style.display    = 'flex';
+    setDisplay('pce-error', 'flex');
   }
 }
 

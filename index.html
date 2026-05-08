@@ -1253,7 +1253,7 @@
     </div>
 
     <!-- ── 實質民間投資 vs GDP 統計面板 ── -->
-    <div class="stats-row" id="invgdp-stats-row" style="display:none">
+    <div class="stats-row" id="invgdp-stats-row" style="display:none;margin-top:20px">
       <div class="stat-card">
         <div class="stat-label" style="color:#e05050">實質民間投資 YoY</div>
         <div class="stat-value" id="invgdp-inv-val">—</div>
@@ -1261,10 +1261,20 @@
         <div class="stat-date" id="invgdp-inv-date">最新季年增率</div>
       </div>
       <div class="stat-card">
+        <div class="stat-label">民間投資 3季均值</div>
+        <div class="stat-value" id="invgdp-inv-ma3">—</div>
+        <div class="stat-change" style="color:var(--text-dim)">3Q 移動平均</div>
+      </div>
+      <div class="stat-card">
         <div class="stat-label" style="color:#f0a500">實質 GDP YoY</div>
         <div class="stat-value" id="invgdp-gdp-val">—</div>
         <div class="stat-change" id="invgdp-gdp-chg" style="color:var(--text-dim)">—</div>
         <div class="stat-date" id="invgdp-gdp-date">最新季年增率</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">GDP 3季均值</div>
+        <div class="stat-value" id="invgdp-gdp-ma3">—</div>
+        <div class="stat-change" style="color:var(--text-dim)">3Q 移動平均</div>
       </div>
     </div>
 
@@ -3347,7 +3357,7 @@ async function loadInvGdpData(apiKey) {
 
 function updateInvGdpStats() {
   const el = id => document.getElementById(id);
-  const fmt = (arr, valId, chgId, dateId) => {
+  const fmt = (arr, valId, chgId, dateId, ma3Id) => {
     if (!arr.length) return;
     const last = arr[arr.length - 1];
     const prev = arr[arr.length - 2];
@@ -3360,11 +3370,14 @@ function updateInvGdpStats() {
       el(chgId).className   = 'stat-change ' + (delta >= 0 ? 'down' : 'up');
     }
     const d = last.date;
-    const q = 'Q' + (Math.floor(d.getMonth() / 3) + 1);
-    el(dateId).textContent = d.getFullYear() + ' ' + q;
+    el(dateId).textContent = d.getFullYear() + ' Q' + (Math.floor(d.getMonth() / 3) + 1);
+    // 3Q 移動平均
+    const ma3 = arr.slice(-3).reduce((s, x) => s + x.value, 0) / Math.min(arr.length, 3);
+    el(ma3Id).textContent = (ma3 >= 0 ? '+' : '') + ma3.toFixed(2) + '%';
+    el(ma3Id).className   = 'stat-value ' + (ma3 >= 0 ? 'down' : 'up');
   };
-  fmt(invGdpData.inv, 'invgdp-inv-val', 'invgdp-inv-chg', 'invgdp-inv-date');
-  fmt(invGdpData.gdp, 'invgdp-gdp-val', 'invgdp-gdp-chg', 'invgdp-gdp-date');
+  fmt(invGdpData.inv, 'invgdp-inv-val', 'invgdp-inv-chg', 'invgdp-inv-date', 'invgdp-inv-ma3');
+  fmt(invGdpData.gdp, 'invgdp-gdp-val', 'invgdp-gdp-chg', 'invgdp-gdp-date', 'invgdp-gdp-ma3');
 }
 
 function renderInvGdpChart() {

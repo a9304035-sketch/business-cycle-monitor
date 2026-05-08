@@ -1252,6 +1252,56 @@
       <div class="source-tag">SOURCE: FRED / ST. LOUIS FED</div>
     </div>
 
+    <!-- ── 實質民間投資 vs 實質GDP 年增率 ── -->
+    <div class="chart-card" style="margin-top:24px">
+      <div class="chart-toolbar">
+        <div>
+          <div class="section-title-block">
+            <h2><button class="star-btn" id="star-invgdp" onclick="toggleStar('invgdp',this)" title="標記注意">⭐</button>實質民間投資 vs GDP 年增率</h2>
+            <div class="series-id">FRED: A008RL1Q225SBEA · A191RL1Q225SBEA — 季更 實質 YoY %</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="toolbar-label">區間</span>
+          <div class="range-group">
+            <button class="range-btn" data-invgdprange="1"   onclick="setInvGdpRange('1',this)">1年</button>
+            <button class="range-btn" data-invgdprange="3"   onclick="setInvGdpRange('3',this)">3年</button>
+            <button class="range-btn" data-invgdprange="5"   onclick="setInvGdpRange('5',this)">5年</button>
+            <button class="range-btn active" data-invgdprange="ALL" onclick="setInvGdpRange('ALL',this)">全部</button>
+          </div>
+        </div>
+        <button class="zoom-reset-btn" id="zoom-reset-invgdp" onclick="resetZoom('invgdp')">↺ 重置縮放</button>
+      </div>
+
+      <div class="chart-wrapper">
+        <div id="invgdp-intro" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:380px;gap:14px;color:var(--text-dim)">
+          <div style="font-size:48px;opacity:0.4">📊</div>
+          <div style="font-family:var(--font-display);font-size:20px;letter-spacing:3px;color:var(--text-secondary)">等待數據載入</div>
+          <div style="font-family:var(--font-mono);font-size:11px;text-align:center;line-height:1.8">載入消費數據後<br/>投資與GDP數據將同步抓取</div>
+        </div>
+        <div id="invgdp-loading" class="overlay" style="display:none">
+          <div class="spinner"></div>
+          <div class="overlay-text">正在抓取投資與 GDP 數據...</div>
+        </div>
+        <div id="invgdp-error" class="overlay" style="display:none">
+          <div class="error-icon">⚠️</div>
+          <div class="error-msg" id="invgdp-error-msg"></div>
+        </div>
+        <canvas id="invgdp-chart" style="display:none"></canvas>
+      </div>
+
+      <div class="chart-legend" id="invgdp-legend" style="display:none">
+        <div class="legend-item"><div style="background:rgba(224,80,80,0.8);height:12px;width:12px;border-radius:2px;display:inline-block"></div><span>實質民間投資年增率（YoY %）</span></div>
+        <div class="legend-item"><div style="background:rgba(240,165,0,0.15);border:1.5px solid #f0a500;height:12px;width:12px;border-radius:2px;display:inline-block"></div><span>實質 GDP 年增率（YoY %）</span></div>
+        <div class="legend-item"><div class="legend-swatch recession"></div><span>NBER 景氣衰退期</span></div>
+      </div>
+
+      <div id="invgdp-note" style="display:none;margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#4a5a6a;letter-spacing:0.5px">
+        * Y 軸：實質民間投資／實質GDP 年增率（% Change from Year Ago）／ 數據來源：BEA，季更季調年化
+      </div>
+      <div class="source-tag">SOURCE: FRED / ST. LOUIS FED</div>
+    </div>
+
   </main>
 </div>
 
@@ -1273,7 +1323,7 @@ const TAB_LOADERS = {
     .then(() => new Promise(r => setTimeout(r, 2000)))
     .then(() => loadDebtData(apiKey)),
 
-  recession: apiKey => loadPceData(apiKey),
+  recession: apiKey => loadPceData(apiKey).then(() => loadInvGdpData(apiKey)),
 
   recovery: () => Promise.resolve(),   // 尚無圖表
   growth:   () => Promise.resolve(),   // 尚無圖表
@@ -1306,6 +1356,7 @@ const ZOOM_CHART_MAP = {
   invt: () => invtChart,
   debt: () => debtChart,
   pce:  () => pceChart,
+  invgdp: () => invGdpChart,
 };
 
 // debounce helper
@@ -3215,6 +3266,174 @@ const savedKey = localStorage.getItem('fred_api_key');
 if (savedKey) {
   document.getElementById('api-key-input').value = savedKey;
   loadData();
+}
+
+// ── 實質民間投資 vs GDP 年增率 圖表 ───────────────────────────
+let invGdpChart = null;
+let invGdpRange = 'ALL';
+let invGdpData  = { inv: [], gdp: [] };
+
+function setInvGdpRange(r, btn) {
+  invGdpRange = r;
+  document.querySelectorAll('[data-invgdprange]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (invGdpData.inv.length) renderInvGdpChart();
+}
+
+function applyInvGdpRange(data) {
+  if (invGdpRange === 'ALL') return data;
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - parseInt(invGdpRange));
+  return data.filter(d => d.date >= cutoff);
+}
+
+async function loadInvGdpData(apiKey) {
+  setDisplay('invgdp-loading', 'flex');
+  setDisplay('invgdp-intro', 'none');
+  try {
+    // A008RL1Q225SBEA = 實質民間投資 YoY%（已是年增率，季更）
+    const invUrl = `/api/fred?series_id=A008RL1Q225SBEA&api_key=${encodeURIComponent(apiKey)}`;
+    await new Promise(r => setTimeout(r, 600));
+    const gdpUrl = `/api/fred?series_id=A191RL1Q225SBEA&api_key=${encodeURIComponent(apiKey)}`;
+
+    const [invRes, gdpRes] = await Promise.all([
+      fetch(invUrl).then(r => r.json()),
+      fetch(gdpUrl).then(r => r.json()),
+    ]);
+
+    if (invRes.error_message) throw new Error('投資數據：' + invRes.error_message);
+    if (gdpRes.error_message) throw new Error('GDP 數據：' + gdpRes.error_message);
+
+    const parse = obs => obs
+      .filter(o => o.value !== '.')
+      .map(o => ({ date: new Date(o.date), value: parseFloat(o.value) }));
+
+    invGdpData.inv = parse(invRes.observations  || []);
+    invGdpData.gdp = parse(gdpRes.observations  || []);
+
+    renderInvGdpChart();
+
+    setDisplay('invgdp-loading', 'none');
+    setDisplay('invgdp-legend', 'flex');
+    setDisplay('invgdp-note',   'block');
+
+    const stars = getStars();
+    const btn = document.getElementById('star-invgdp');
+    if (btn) btn.classList.toggle('lit', !!stars['invgdp']);
+  } catch (err) {
+    setDisplay('invgdp-loading', 'none');
+    document.getElementById('invgdp-error-msg').textContent = '數據載入失敗：' + err.message;
+    setDisplay('invgdp-error', 'flex');
+  }
+}
+
+function renderInvGdpChart() {
+  const invRanged = applyInvGdpRange(invGdpData.inv);
+  const gdpRanged = applyInvGdpRange(invGdpData.gdp);
+
+  // Build unified quarterly date axis from investment data (denser series)
+  const toYQ   = d => d.date.getFullYear() * 10 + Math.floor(d.date.getMonth() / 3);
+  const allYQs = [...new Set([...invRanged, ...gdpRanged].map(toYQ))].sort((a, b) => a - b);
+
+  const yqDate = yq => {
+    const yr = Math.floor(yq / 10);
+    const q  = yq % 10;
+    return new Date(yr, q * 3, 1);
+  };
+
+  const invMap = Object.fromEntries(invRanged.map(d => [toYQ(d), d.value]));
+  const gdpMap = Object.fromEntries(gdpRanged.map(d => [toYQ(d), d.value]));
+
+  const labels   = allYQs.map(yq => {
+    const d = yqDate(yq);
+    return d.getFullYear() + ' Q' + (Math.floor(d.getMonth() / 3) + 1);
+  });
+  const invVals  = allYQs.map(yq => invMap[yq] !== undefined ? invMap[yq] : null);
+  const gdpVals  = allYQs.map(yq => gdpMap[yq] !== undefined ? gdpMap[yq] : null);
+  const processed = allYQs.map(yq => ({ date: yqDate(yq) }));
+
+  const canvas = document.getElementById('invgdp-chart');
+  canvas.style.display = 'block';
+  if (invGdpChart) { invGdpChart.destroy(); invGdpChart = null; }
+
+  invGdpChart = new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '實質民間投資年增率 YoY %',
+          data:  invVals,
+          backgroundColor: invVals.map(v => v === null ? 'transparent' : v >= 0 ? 'rgba(224,80,80,0.75)' : 'rgba(224,80,80,0.85)'),
+          borderColor:     invVals.map(v => v === null ? 'transparent' : '#e05050'),
+          borderWidth: 1, borderRadius: 2, borderSkipped: false,
+          order: 2,
+        },
+        {
+          label: '實質 GDP 年增率 YoY %',
+          data:  gdpVals,
+          backgroundColor: 'rgba(240,165,0,0.12)',
+          borderColor:     '#f0a500',
+          borderWidth: 1.5, borderRadius: 2, borderSkipped: false,
+          order: 1,
+        },
+      ]
+    },
+    plugins: [recessionPlugin(processed)],
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation:   { duration: 500, easing: 'easeOutQuart' },
+      interaction: { mode: 'index', intersect: false },
+      grouped: false,
+      scales: {
+        x: {
+          grid:   { display: false },
+          border: { color: '#1e2d3d' },
+          ticks:  {
+            color: '#4a5a6a',
+            font:  { family: "'JetBrains Mono', monospace", size: 10 },
+            maxRotation: 0, autoSkip: true, maxTicksLimit: 12,
+          },
+        },
+        y: {
+          grid:   { color: 'rgba(30,45,61,0.8)', lineWidth: 1 },
+          border: { color: '#1e2d3d', dash: [4, 4] },
+          ticks:  {
+            color: '#4a5a6a',
+            font:  { family: "'JetBrains Mono', monospace", size: 10 },
+            callback: v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%',
+          },
+          title: {
+            display: true, text: '年增率（YoY %）',
+            color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 },
+          },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+        zoom: zoomPluginOptions('invgdp'),
+        tooltip: {
+          backgroundColor: '#0d1318',
+          borderColor: '#2a4060', borderWidth: 1,
+          titleColor: '#8090a0', bodyColor: '#8090a0',
+          padding: 12,
+          titleFont: { family: "'JetBrains Mono', monospace", size: 11 },
+          bodyFont:  { family: "'JetBrains Mono', monospace", size: 11 },
+          callbacks: {
+            title: items => '📅 ' + items[0].label,
+            label: item => {
+              const v = item.parsed.y;
+              if (v === null) return null;
+              const sign = v >= 0 ? '+' : '';
+              const name = item.datasetIndex === 0 ? '民間投資' : 'GDP';
+              return `  ${name}：${sign}${v.toFixed(2)}%`;
+            },
+          },
+        },
+      },
+    },
+  });
 }
 </script>
 </body>

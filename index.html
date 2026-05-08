@@ -1328,6 +1328,76 @@
       <div class="source-tag">SOURCE: FRED / ST. LOUIS FED</div>
     </div>
 
+    <!-- ── 分隔線 ── -->
+    <div style="margin:32px 0;border-top:1px solid var(--border);position:relative">
+      <span style="position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:var(--bg-main);padding:0 16px;font-family:var(--font-mono);font-size:9px;color:var(--text-dim);letter-spacing:3px;text-transform:uppercase">PRIVATE INVESTMENT TREND</span>
+    </div>
+
+    <!-- ── 民間投資趨勢 統計面板 ── -->
+    <div class="stats-row" id="invline-stats-row" style="display:none;margin-bottom:20px">
+      <div class="stat-card">
+        <div class="stat-label" style="color:#e05050">民間投資 YoY</div>
+        <div class="stat-value" id="invline-val">—</div>
+        <div class="stat-change" id="invline-chg" style="color:var(--text-dim)">—</div>
+        <div class="stat-date" id="invline-date">最新季年增率</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">3季均值</div>
+        <div class="stat-value" id="invline-ma3">—</div>
+        <div class="stat-change" style="color:var(--text-dim)">3Q 移動平均</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">6季均值</div>
+        <div class="stat-value" id="invline-ma6">—</div>
+        <div class="stat-change" style="color:var(--text-dim)">6Q 移動平均</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">12季均值</div>
+        <div class="stat-value" id="invline-ma12">—</div>
+        <div class="stat-change" style="color:var(--text-dim)">12Q 移動平均</div>
+      </div>
+    </div>
+
+    <!-- ── 民間投資年增率 趨勢曲線 ── -->
+    <div class="chart-card">
+      <div class="chart-toolbar">
+        <div>
+          <div class="section-title-block">
+            <h2><button class="star-btn" id="star-invline" onclick="toggleStar('invline',this)" title="標記注意">⭐</button>實質民間投資年增率趨勢</h2>
+            <div class="series-id">FRED: A008RL1Q225SBEA — 季更 實質 YoY %（曲線）</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="toolbar-label">區間</span>
+          <div class="range-group">
+            <button class="range-btn" data-invlinerange="1"   onclick="setInvLineRange('1',this)">1年</button>
+            <button class="range-btn" data-invlinerange="3"   onclick="setInvLineRange('3',this)">3年</button>
+            <button class="range-btn" data-invlinerange="5"   onclick="setInvLineRange('5',this)">5年</button>
+            <button class="range-btn active" data-invlinerange="ALL" onclick="setInvLineRange('ALL',this)">全部</button>
+          </div>
+        </div>
+        <button class="zoom-reset-btn" onclick="resetZoom('invline')">↺ 重置縮放</button>
+      </div>
+
+      <div class="chart-wrapper">
+        <canvas id="invline-chart" style="display:none"></canvas>
+        <div id="invline-loading" class="overlay" style="display:none">
+          <div class="spinner"></div>
+          <div class="overlay-text">載入中...</div>
+        </div>
+      </div>
+
+      <div class="chart-legend" id="invline-legend" style="display:none">
+        <div class="legend-item"><div style="background:#e05050;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>實質民間投資年增率（YoY %）</span></div>
+        <div class="legend-item"><div class="legend-swatch recession"></div><span>NBER 景氣衰退期</span></div>
+      </div>
+
+      <div style="margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:9px;color:#4a5a6a;letter-spacing:0.5px" id="invline-note" style="display:none">
+        * Y 軸：實質民間投資年增率（% Change from Year Ago）／ 數據來源：BEA，季更季調年化
+      </div>
+      <div class="source-tag">SOURCE: FRED / ST. LOUIS FED</div>
+    </div>
+
   </main>
 </div>
 
@@ -1383,6 +1453,7 @@ const ZOOM_CHART_MAP = {
   debt: () => debtChart,
   pce:  () => pceChart,
   invgdp: () => invGdpChart,
+  invline: () => invLineChart,
 };
 
 // debounce helper
@@ -3339,11 +3410,17 @@ async function loadInvGdpData(apiKey) {
 
     renderInvGdpChart();
     updateInvGdpStats();
+    renderInvLineChart();
+    updateInvLineStats();
 
     setDisplay('invgdp-loading', 'none');
     setDisplay('invgdp-stats-row', 'grid');
     setDisplay('invgdp-legend', 'flex');
     setDisplay('invgdp-note',   'block');
+    setDisplay('invline-stats-row', 'grid');
+    setDisplay('invline-legend', 'flex');
+    document.getElementById('invline-chart').style.display = 'block';
+    document.getElementById('invline-note').style.display  = 'block';
 
     const stars = getStars();
     const btn = document.getElementById('star-invgdp');
@@ -3481,6 +3558,129 @@ function renderInvGdpChart() {
               const sign = v >= 0 ? '+' : '';
               const name = item.datasetIndex === 0 ? '民間投資' : 'GDP';
               return `  ${name}：${sign}${v.toFixed(2)}%`;
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+// ── 民間投資趨勢曲線 ─────────────────────────────────────────
+let invLineChart = null;
+let invLineRange = 'ALL';
+
+function setInvLineRange(r, btn) {
+  invLineRange = r;
+  document.querySelectorAll('[data-invlinerange]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (invGdpData.inv.length) renderInvLineChart();
+}
+
+function applyInvLineRange(data) {
+  if (invLineRange === 'ALL') return data;
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - parseInt(invLineRange));
+  return data.filter(d => d.date >= cutoff);
+}
+
+function updateInvLineStats() {
+  const arr = invGdpData.inv;
+  if (!arr.length) return;
+  const el   = id => document.getElementById(id);
+  const last = arr[arr.length - 1];
+  const prev = arr[arr.length - 2];
+  const v    = last.value;
+  el('invline-val').textContent = (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+  el('invline-val').className   = 'stat-value ' + (v >= 0 ? 'down' : 'up');
+  if (prev) {
+    const delta = v - prev.value;
+    el('invline-chg').textContent = (delta >= 0 ? '▲ ' : '▼ ') + Math.abs(delta).toFixed(2) + '% vs 上季';
+    el('invline-chg').className   = 'stat-change ' + (delta >= 0 ? 'down' : 'up');
+  }
+  const d = last.date;
+  el('invline-date').textContent = d.getFullYear() + ' Q' + (Math.floor(d.getMonth() / 3) + 1);
+  const avg = n => arr.slice(-n).reduce((s, x) => s + x.value, 0) / Math.min(arr.length, n);
+  [['ma3',3],['ma6',6],['ma12',12]].forEach(([k, n]) => {
+    const m = avg(n);
+    el('invline-' + k).textContent = (m >= 0 ? '+' : '') + m.toFixed(2) + '%';
+    el('invline-' + k).className   = 'stat-value ' + (m >= 0 ? 'down' : 'up');
+  });
+}
+
+function renderInvLineChart() {
+  const ranged    = applyInvLineRange(invGdpData.inv);
+  const labels    = ranged.map(d => d.date.getFullYear() + ' Q' + (Math.floor(d.date.getMonth() / 3) + 1));
+  const values    = ranged.map(d => d.value);
+  const processed = ranged.map(d => ({ date: d.date }));
+
+  const canvas = document.getElementById('invline-chart');
+  canvas.style.display = 'block';
+  if (invLineChart) { invLineChart.destroy(); invLineChart = null; }
+
+  invLineChart = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '實質民間投資年增率 YoY %',
+        data: values,
+        borderColor: '#e05050',
+        backgroundColor: 'rgba(224,80,80,0.08)',
+        borderWidth: 2,
+        pointRadius: 2,
+        pointHoverRadius: 5,
+        pointBackgroundColor: '#e05050',
+        fill: true,
+        tension: 0.3,
+      }]
+    },
+    plugins: [recessionPlugin(processed)],
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation:   { duration: 500, easing: 'easeOutQuart' },
+      interaction: { mode: 'index', intersect: false },
+      scales: {
+        x: {
+          grid:   { display: false },
+          border: { color: '#1e2d3d' },
+          ticks:  {
+            color: '#4a5a6a',
+            font:  { family: "'JetBrains Mono', monospace", size: 10 },
+            maxRotation: 0, autoSkip: true, maxTicksLimit: 12,
+          },
+        },
+        y: {
+          grid:   { color: 'rgba(30,45,61,0.8)', lineWidth: 1 },
+          border: { color: '#1e2d3d', dash: [4, 4] },
+          ticks:  {
+            color: '#4a5a6a',
+            font:  { family: "'JetBrains Mono', monospace", size: 10 },
+            callback: v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%',
+          },
+          title: {
+            display: true, text: '年增率（YoY %）',
+            color: '#4a5a6a', font: { family: "'JetBrains Mono', monospace", size: 10 },
+          },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+        zoom: zoomPluginOptions('invline'),
+        tooltip: {
+          backgroundColor: '#0d1318',
+          borderColor: '#2a4060', borderWidth: 1,
+          titleColor: '#8090a0', bodyColor: '#8090a0',
+          padding: 12,
+          titleFont: { family: "'JetBrains Mono', monospace", size: 11 },
+          bodyFont:  { family: "'JetBrains Mono', monospace", size: 11 },
+          callbacks: {
+            title: items => '📅 ' + items[0].label,
+            label: item => {
+              const v = item.parsed.y;
+              if (v === null) return null;
+              return '  民間投資：' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
             },
           },
         },

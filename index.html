@@ -1365,7 +1365,7 @@
         <div>
           <div class="section-title-block">
             <h2><button class="star-btn" id="star-invline" onclick="toggleStar('invline',this)" title="標記注意">⭐</button>實質民間投資年增率趨勢</h2>
-            <div class="series-id">FRED: A008RL1Q225SBEA · A007RL1Q225SBEA — 季更 實質 YoY %（曲線）</div>
+            <div class="series-id">FRED: A008RL1Q225SBEA · Y033RL1Q225SBEA — 季更 實質 季增年率（曲線）</div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
@@ -3394,7 +3394,7 @@ async function loadInvGdpData(apiKey) {
     const invUrl = `/api/fred?series_id=A008RL1Q225SBEA&api_key=${encodeURIComponent(apiKey)}`;
     await new Promise(r => setTimeout(r, 600));
     const gdpUrl = `/api/fred?series_id=A191RL1Q225SBEA&api_key=${encodeURIComponent(apiKey)}`;
-    const eqpUrl = `/api/fred?series_id=A007RL1Q225SBEA&api_key=${encodeURIComponent(apiKey)}`;
+    const eqpUrl = `/api/fred?series_id=Y033RL1Q225SBEA&api_key=${encodeURIComponent(apiKey)}`;
 
     const [invRes, gdpRes, eqpRes] = await Promise.all([
       fetch(invUrl).then(r => r.json()),

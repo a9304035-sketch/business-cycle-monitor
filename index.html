@@ -1329,8 +1329,8 @@
     </div>
 
     <!-- ── 分隔線 ── -->
-    <div style="margin:32px 0;border-top:1px solid var(--border);position:relative">
-      <span style="position:absolute;top:-9px;left:50%;transform:translateX(-50%);background:var(--bg-main);padding:0 16px;font-family:var(--font-mono);font-size:9px;color:var(--text-dim);letter-spacing:3px;text-transform:uppercase">PRIVATE INVESTMENT TREND</span>
+    <div style="margin:32px 0;border-top:3px solid var(--border);position:relative">
+      <span style="position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--bg-main);padding:0 16px;font-family:var(--font-mono);font-size:9px;color:var(--amber);letter-spacing:3px;text-transform:uppercase">PRIVATE INVESTMENT TREND</span>
     </div>
 
     <!-- ── 民間投資趨勢 統計面板 ── -->
@@ -1364,7 +1364,7 @@
         <div>
           <div class="section-title-block">
             <h2><button class="star-btn" id="star-invline" onclick="toggleStar('invline',this)" title="標記注意">⭐</button>實質民間投資年增率趨勢</h2>
-            <div class="series-id">FRED: A008RL1Q225SBEA — 季更 實質 YoY %（曲線）</div>
+            <div class="series-id">FRED: A008RL1Q225SBEA · A007RL1Q225SBEA — 季更 實質 YoY %（曲線）</div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
@@ -1389,6 +1389,7 @@
 
       <div class="chart-legend" id="invline-legend" style="display:none">
         <div class="legend-item"><div style="background:#e05050;height:3px;width:20px;border-radius:2px;display:inline-block"></div><span>實質民間投資年增率（YoY %）</span></div>
+        <div class="legend-item"><div style="background:#f0a500;height:3px;width:20px;border-radius:2px;display:inline-block;border-style:dashed;border-width:0 0 2px 0"></div><span>資本設備支出年增率（YoY %）</span></div>
         <div class="legend-item"><div class="legend-swatch recession"></div><span>NBER 景氣衰退期</span></div>
       </div>
 
@@ -3368,7 +3369,7 @@ if (savedKey) {
 // ── 實質民間投資 vs GDP 年增率 圖表 ───────────────────────────
 let invGdpChart = null;
 let invGdpRange = 'ALL';
-let invGdpData  = { inv: [], gdp: [] };
+let invGdpData  = { inv: [], gdp: [], eqp: [] };
 
 function setInvGdpRange(r, btn) {
   invGdpRange = r;
@@ -3392,10 +3393,12 @@ async function loadInvGdpData(apiKey) {
     const invUrl = `/api/fred?series_id=A008RL1Q225SBEA&api_key=${encodeURIComponent(apiKey)}`;
     await new Promise(r => setTimeout(r, 600));
     const gdpUrl = `/api/fred?series_id=A191RL1Q225SBEA&api_key=${encodeURIComponent(apiKey)}`;
+    const eqpUrl = `/api/fred?series_id=A007RL1Q225SBEA&api_key=${encodeURIComponent(apiKey)}`;
 
-    const [invRes, gdpRes] = await Promise.all([
+    const [invRes, gdpRes, eqpRes] = await Promise.all([
       fetch(invUrl).then(r => r.json()),
       fetch(gdpUrl).then(r => r.json()),
+      fetch(eqpUrl).then(r => r.json()),
     ]);
 
     if (invRes.error_message) throw new Error('投資數據：' + invRes.error_message);
@@ -3407,6 +3410,7 @@ async function loadInvGdpData(apiKey) {
 
     invGdpData.inv = parse(invRes.observations  || []);
     invGdpData.gdp = parse(gdpRes.observations  || []);
+    invGdpData.eqp = eqpRes.observations ? parse(eqpRes.observations) : [];
 
     renderInvGdpChart();
     updateInvGdpStats();
@@ -3610,8 +3614,13 @@ function updateInvLineStats() {
 
 function renderInvLineChart() {
   const ranged    = applyInvLineRange(invGdpData.inv);
+  const eqpRanged = applyInvLineRange(invGdpData.eqp);
   const labels    = ranged.map(d => d.date.getFullYear() + ' Q' + (Math.floor(d.date.getMonth() / 3) + 1));
   const values    = ranged.map(d => d.value);
+  // align equipment to same date axis
+  const toYQ  = d => d.date.getFullYear() * 10 + Math.floor(d.date.getMonth() / 3);
+  const eqpMap = Object.fromEntries(eqpRanged.map(d => [toYQ(d), d.value]));
+  const eqpVals = ranged.map(d => { const k = toYQ(d); return eqpMap[k] !== undefined ? eqpMap[k] : null; });
   const processed = ranged.map(d => ({ date: d.date }));
 
   const canvas = document.getElementById('invline-chart');
@@ -3622,18 +3631,33 @@ function renderInvLineChart() {
     type: 'line',
     data: {
       labels,
-      datasets: [{
-        label: '實質民間投資年增率 YoY %',
-        data: values,
-        borderColor: '#e05050',
-        backgroundColor: 'rgba(224,80,80,0.08)',
-        borderWidth: 2,
-        pointRadius: 2,
-        pointHoverRadius: 5,
-        pointBackgroundColor: '#e05050',
-        fill: true,
-        tension: 0.3,
-      }]
+      datasets: [
+        {
+          label: '實質民間投資年增率 YoY %',
+          data: values,
+          borderColor: '#e05050',
+          backgroundColor: 'rgba(224,80,80,0.06)',
+          borderWidth: 2,
+          pointRadius: 2,
+          pointHoverRadius: 5,
+          pointBackgroundColor: '#e05050',
+          fill: true,
+          tension: 0.3,
+        },
+        {
+          label: '資本設備支出年增率 YoY %',
+          data: eqpVals,
+          borderColor: '#f0a500',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          borderDash: [5, 3],
+          pointRadius: 2,
+          pointHoverRadius: 5,
+          pointBackgroundColor: '#f0a500',
+          fill: false,
+          tension: 0.3,
+        },
+      ]
     },
     plugins: [recessionPlugin(processed)],
     options: {
@@ -3680,7 +3704,8 @@ function renderInvLineChart() {
             label: item => {
               const v = item.parsed.y;
               if (v === null) return null;
-              return '  民間投資：' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+              const name = item.datasetIndex === 0 ? '民間投資' : '設備支出';
+              return '  ' + name + '：' + (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
             },
           },
         },
